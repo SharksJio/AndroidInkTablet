@@ -24,6 +24,7 @@ import com.google.android.material.slider.Slider
 import com.sharks.androidinktablet.drawing.DrawingView
 import com.sharks.androidinktablet.drawing.Tool
 import com.sharks.androidinktablet.drawing.ToolType
+import com.sharks.androidinktablet.ui.ColorPickerDialog
 
 /**
  * Main activity for the Android Ink Tablet application.
@@ -208,23 +209,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showColorPicker() {
-        // TODO: Implement color picker dialog
-        // For now, cycle through basic colors
-        val colors = arrayOf(
-            Color.BLACK, Color.BLUE, Color.RED, Color.GREEN,
-            Color.parseColor("#9C27B0"), // Purple
-            Color.parseColor("#FF9800"), // Orange
-            Color.parseColor("#795548"), // Brown
-            Color.GRAY
-        )
-        
-        val currentIndex = colors.indexOf(currentColor)
-        val nextIndex = (currentIndex + 1) % colors.size
-        currentColor = colors[nextIndex]
-        updateCurrentTool()
-        
-        // Update color picker button background to show current color
-        btnColorPicker.setColorFilter(currentColor)
+        val colorPickerDialog = ColorPickerDialog()
+        colorPickerDialog.setInitialColor(currentColor)
+        colorPickerDialog.setOnColorSelectedListener { color ->
+            currentColor = color
+            updateCurrentTool()
+            // Update color picker button background to show current color
+            btnColorPicker.setColorFilter(currentColor)
+        }
+        colorPickerDialog.show(supportFragmentManager, "ColorPickerDialog")
     }
 
     private fun handleImageInsertion() {
