@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Dark theme colors -->
+    <color name="primary">#FF64B5F6</color>
+    <color name="primary_variant">#FF42A5F5</color>
+    <color name="secondary">#FF4DD0E1</color>
+    <color name="secondary_variant">#FF26C6DA</color>
+    <color name="background">#FF121212</color>
+    <color name="surface">#FF1E1E1E</color>
+    <color name="error">#FFCF6679</color>
+    <color name="on_primary">#FF000000</color>
+    <color name="on_secondary">#FF000000</color>
+    <color name="on_background">#FFFFFFFF</color>
+    <color name="on_surface">#FFFFFFFF</color>
+    <color name="on_error">#FF000000</color>
+    
+    <!-- Dark UI Colors -->
+    <color name="toolbar_background">#FF2C2C2C</color>
+    <color name="canvas_background">#FF1A1A1A</color>
+</resources>

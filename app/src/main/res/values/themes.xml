@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme using Material Theme 3 -->
+    <style name="Base.Theme.AndroidInkTablet" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_variant</item>
+        <item name="colorSecondary">@color/secondary</item>
+        <item name="colorSecondaryVariant">@color/secondary_variant</item>
+        <item name="android:colorBackground">@color/background</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="colorOnSecondary">@color/on_secondary</item>
+        <item name="colorOnBackground">@color/on_background</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorOnError">@color/on_error</item>
+        
+        <!-- Configure for edge-to-edge display -->
+        <item name="android:statusBarColor" tools:targetApi="l">@android:color/transparent</item>
+        <item name="android:navigationBarColor" tools:targetApi="l">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+    </style>
+
+    <style name="Theme.AndroidInkTablet" parent="Base.Theme.AndroidInkTablet">
+        <!-- Customize your light theme here. -->
+    </style>
+    
+    <!-- Toolbar Theme -->
+    <style name="ToolbarTheme" parent="ThemeOverlay.Material3.ActionBar">
+        <item name="android:background">@color/toolbar_background</item>
+        <item name="android:elevation">4dp</item>
+    </style>
+    
+    <!-- Floating Action Button Theme -->
+    <style name="FabTheme" parent="Widget.Material3.FloatingActionButton.Primary">
+        <item name="backgroundTint">@color/primary</item>
+        <item name="tint">@color/on_primary</item>
+    </style>
+    
+    <!-- Button Styles -->
+    <style name="ToolButton" parent="Widget.Material3.Button.IconButton">
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:padding">8dp</item>
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+        <item name="android:scaleType">centerInside</item>
+    </style>
+    
+    <!-- Slider Styles -->
+    <style name="SizeSlider" parent="Widget.Material3.Slider">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="trackColorActive">@color/primary</item>
+        <item name="trackColorInactive">@color/tool_unselected</item>
+        <item name="thumbColor">@color/primary</item>
+    </style>
+</resources>

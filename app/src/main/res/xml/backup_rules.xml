@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Include user drawings and preferences -->
+    <include domain="file" path="drawings/"/>
+    <include domain="sharedpref" path="ink_preferences.xml"/>
+    
+    <!-- Exclude cache and temporary files -->
+    <exclude domain="file" path="temp/"/>
+    <exclude domain="file" path="cache/"/>
+</full-backup-content>
