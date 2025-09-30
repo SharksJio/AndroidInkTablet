@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_new"
+        android:icon="@drawable/ic_new"
+        android:title="@string/menu_new"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_save"
+        android:icon="@drawable/ic_save"
+        android:title="@string/menu_save"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_load"
+        android:icon="@drawable/ic_load"
+        android:title="@string/menu_load"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_clear"
+        android:icon="@drawable/ic_clear"
+        android:title="@string/menu_clear"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_ai_text"
+        android:icon="@drawable/ic_text_recognition"
+        android:title="@string/ai_text_recognition"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_ai_shape"
+        android:icon="@drawable/ic_shape_detection"
+        android:title="@string/ai_shape_detection"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_settings"
+        android:icon="@drawable/ic_settings"
+        android:title="@string/menu_settings"
+        app:showAsAction="never" />
+
+</menu>

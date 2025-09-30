@@ -1,0 +1,47 @@
+<resources>
+    <string name="app_name">Android Ink Tablet</string>
+    
+    <!-- Tool Names -->
+    <string name="tool_pen">Pen</string>
+    <string name="tool_pencil">Pencil</string>
+    <string name="tool_marker">Marker</string>
+    <string name="tool_eraser">Eraser</string>
+    <string name="tool_lasso">Lasso Select</string>
+    <string name="tool_image">Insert Image</string>
+    
+    <!-- Menu Items -->
+    <string name="menu_new">New Page</string>
+    <string name="menu_save">Save</string>
+    <string name="menu_load">Load</string>
+    <string name="menu_undo">Undo</string>
+    <string name="menu_redo">Redo</string>
+    <string name="menu_clear">Clear Page</string>
+    <string name="menu_settings">Settings</string>
+    
+    <!-- Tool Settings -->
+    <string name="brush_size">Brush Size</string>
+    <string name="color_picker">Color Picker</string>
+    <string name="pressure_sensitivity">Pressure Sensitivity</string>
+    
+    <!-- AI Features -->
+    <string name="ai_text_recognition">Text Recognition</string>
+    <string name="ai_shape_detection">Shape Detection</string>
+    <string name="ai_handwriting_improvement">Handwriting Improvement</string>
+    
+    <!-- Dialogs -->
+    <string name="dialog_save_title">Save Drawing</string>
+    <string name="dialog_load_title">Load Drawing</string>
+    <string name="dialog_clear_title">Clear Page</string>
+    <string name="dialog_clear_message">Are you sure you want to clear the entire page? This action cannot be undone.</string>
+    <string name="button_yes">Yes</string>
+    <string name="button_no">No</string>
+    <string name="button_cancel">Cancel</string>
+    <string name="button_save">Save</string>
+    <string name="button_load">Load</string>
+    
+    <!-- Accessibility -->
+    <string name="content_description_canvas">Drawing canvas</string>
+    <string name="content_description_toolbar">Drawing tools toolbar</string>
+    <string name="content_description_color_picker">Color selection</string>
+    <string name="content_description_size_slider">Brush size adjustment</string>
+</resources>

@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    tools:context=".MainActivity">
+
+    <!-- App Bar with Toolbar -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:theme="@style/ToolbarTheme">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/toolbar_background"
+            app:title="@string/app_name"
+            app:titleTextColor="@color/on_surface"
+            app:menu="@menu/main_menu" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Main Content Area -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <!-- Drawing Canvas Container -->
+        <FrameLayout
+            android:id="@+id/canvasContainer"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@color/canvas_background"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/toolbarContainer"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Custom Drawing View will be added programmatically -->
+            
+        </FrameLayout>
+
+        <!-- Bottom Toolbar Container -->
+        <LinearLayout
+            android:id="@+id/toolbarContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:background="@color/toolbar_background"
+            android:elevation="4dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Drawing Tools -->
+            <HorizontalScrollView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/toolsLayout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <!-- Pen Tool -->
+                    <ImageButton
+                        android:id="@+id/btnPen"
+                        style="@style/ToolButton"
+                        android:src="@drawable/ic_pen"
+                        android:contentDescription="@string/tool_pen"
+                        android:layout_margin="4dp" />
+
+                    <!-- Pencil Tool -->
+                    <ImageButton
+                        android:id="@+id/btnPencil"
+                        style="@style/ToolButton"
+                        android:src="@drawable/ic_pencil"
+                        android:contentDescription="@string/tool_pencil"
+                        android:layout_margin="4dp" />
+
+                    <!-- Marker Tool -->
+                    <ImageButton
+                        android:id="@+id/btnMarker"
+                        style="@style/ToolButton"
+                        android:src="@drawable/ic_marker"
+                        android:contentDescription="@string/tool_marker"
+                        android:layout_margin="4dp" />
+
+                    <!-- Eraser Tool -->
+                    <ImageButton
+                        android:id="@+id/btnEraser"
+                        style="@style/ToolButton"
+                        android:src="@drawable/ic_eraser"
+                        android:contentDescription="@string/tool_eraser"
+                        android:layout_margin="4dp" />
+
+                    <!-- Lasso Select Tool -->
+                    <ImageButton
+                        android:id="@+id/btnLasso"
+                        style="@style/ToolButton"
+                        android:src="@drawable/ic_lasso"
+                        android:contentDescription="@string/tool_lasso"
+                        android:layout_margin="4dp" />
+
+                    <!-- Image Insert Tool -->
+                    <ImageButton
+                        android:id="@+id/btnImage"
+                        style="@style/ToolButton"
+                        android:src="@drawable/ic_image"
+                        android:contentDescription="@string/tool_image"
+                        android:layout_margin="4dp" />
+
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- Color Picker Button -->
+            <ImageButton
+                android:id="@+id/btnColorPicker"
+                style="@style/ToolButton"
+                android:src="@drawable/ic_palette"
+                android:contentDescription="@string/color_picker"
+                android:layout_margin="4dp" />
+
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Settings Panel (Initially Hidden) -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/settingsPanel"
+        android:layout_width="280dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        app:cardElevation="8dp"
+        app:cardCornerRadius="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/brush_size"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:layout_marginBottom="8dp" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/sizeSlider"
+                style="@style/SizeSlider"
+                android:valueFrom="1"
+                android:valueTo="50"
+                android:value="5"
+                android:stepSize="1"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/pressure_sensitivity"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:layout_marginBottom="8dp" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/pressureSlider"
+                style="@style/SizeSlider"
+                android:valueFrom="0.1"
+                android:valueTo="2.0"
+                android:value="1.0"
+                android:stepSize="0.1" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Floating Action Buttons -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabUndo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_undo"
+        android:contentDescription="@string/menu_undo"
+        app:tint="@color/on_primary"
+        app:backgroundTint="@color/primary" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabRedo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="80dp"
+        android:src="@drawable/ic_redo"
+        android:contentDescription="@string/menu_redo"
+        app:tint="@color/on_primary"
+        app:backgroundTint="@color/primary" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
