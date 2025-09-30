@@ -6,6 +6,7 @@ plugins {
 android {
     namespace 'com.sharks.androidinktablet'
     compileSdk 34
+    buildToolsVersion '36.0.0'
 
     defaultConfig {
         applicationId "com.sharks.androidinktablet"
@@ -61,8 +62,10 @@ dependencies {
     implementation 'com.google.android.material:material:1.10.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // Google Ink API (Digital Ink Recognition)
-    implementation 'com.google.mlkit:digital-ink-recognition:18.1.0'
+    // AndroidX Ink Library for digital ink recognition
+    implementation 'androidx.ink:ink-geometry:1.0.0-alpha06'
+    implementation 'androidx.ink:ink-rendering:1.0.0-alpha06'
+    implementation 'androidx.ink:ink-strokes:1.0.0-alpha06'
     
     // Additional dependencies for drawing and graphics
     implementation 'androidx.fragment:fragment-ktx:1.6.2'

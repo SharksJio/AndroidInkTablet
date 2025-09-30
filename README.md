@@ -1,5 +1,5 @@
 # AndroidInkTablet
-A complete note-taking application using Google Ink API for Android 14+ with modern Material Theme 3 design.
+A complete note-taking application using AndroidX Ink Library for Android 14+ with modern Material Theme 3 design.
 
 ## Features
 
@@ -31,9 +31,10 @@ A complete note-taking application using Google Ink API for Android 14+ with mod
 
 - **Target API**: Android 34 (Android 14)
 - **Minimum API**: Android 26 (Android 8.0)
+- **Build Tools**: 36.0.0
 - **Architecture**: MVVM with custom drawing engine
 - **Dependencies**:
-  - Google ML Kit Digital Ink Recognition
+  - AndroidX Ink Library (alpha06)
   - Material Components 3
   - AndroidX libraries
   - Kotlin Coroutines
@@ -121,7 +122,7 @@ app/src/main/
 The app requests the following permissions:
 - `READ_MEDIA_IMAGES` (Android 13+): Access gallery images
 - `READ_EXTERNAL_STORAGE` (Android 12 and below): Access stored files
-- `INTERNET`: Download ML models for text recognition
+- `INTERNET`: Network access for future features
 
 ## Contributing
 
@@ -137,6 +138,6 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ## Acknowledgments
 
-- Google ML Kit for digital ink recognition
+- AndroidX Ink Library for digital ink handling
 - Material Design team for UI components
 - Android development community for best practices
