@@ -8,13 +8,16 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.ink.strokes.InProgressStroke
+import androidx.ink.strokes.Stroke as InkStroke
+import androidx.ink.geometry.MutableVec
+import androidx.ink.strokes.StrokeInput
 import java.util.*
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Custom view for handling drawing with custom stroke implementation
- * Note: AndroidX Ink Library integration temporarily disabled due to API incompatibility
+ * Custom view for handling drawing with AndroidX Ink Library support
  */
 class DrawingView @JvmOverloads constructor(
     context: Context,
@@ -36,6 +39,10 @@ class DrawingView @JvmOverloads constructor(
     private var historyIndex = -1
 
     private var onStrokeChangedListener: (() -> Unit)? = null
+
+    // AndroidX Ink Library
+    private var inProgressStroke: InProgressStroke? = null
+    private val inkStrokes = mutableListOf<InkStroke>()
 
     private val backgroundPaint = Paint().apply {
         color = Color.WHITE
@@ -103,8 +110,8 @@ class DrawingView @JvmOverloads constructor(
             timestamps.add(timestamp)
         }
 
-        // AndroidX Ink Library integration removed due to API changes in alpha versions
-        // The drawing functionality works with the custom Stroke class
+        // Start AndroidX Ink stroke
+        inProgressStroke = InProgressStroke.Builder().build()
 
         invalidate()
     }
@@ -118,8 +125,14 @@ class DrawingView @JvmOverloads constructor(
             stroke.pressures.add(adjustedPressure)
             stroke.timestamps.add(timestamp)
 
-            // AndroidX Ink Library integration removed due to API changes in alpha versions
-            // The drawing functionality works with the custom Stroke class
+            // Add point to AndroidX Ink stroke
+            inProgressStroke?.enqueueInput(
+                StrokeInput(
+                    x = x,
+                    y = y,
+                    elapsedTimeMillis = timestamp
+                )
+            )
 
             invalidate()
         }
@@ -136,12 +149,20 @@ class DrawingView @JvmOverloads constructor(
                 canvas.drawPath(stroke.path, paint)
             }
 
-            // AndroidX Ink Library integration removed due to API changes in alpha versions
-            // The drawing functionality works with the custom Stroke class
+            // Finish AndroidX Ink stroke
+            inProgressStroke?.let { inkStroke ->
+                try {
+                    val finishedStroke = inkStroke.finishStroke()
+                    inkStrokes.add(finishedStroke)
+                } catch (e: Exception) {
+                    // Handle error in finishing stroke
+                }
+            }
 
             // Add to command history
             addCommand(DrawingCommand.AddStroke(stroke))
             currentStroke = null
+            inProgressStroke = null
 
             onStrokeChangedListener?.invoke()
             invalidate()
@@ -246,6 +267,7 @@ class DrawingView @JvmOverloads constructor(
         addCommand(DrawingCommand.Clear(strokesCopy))
         
         drawCanvas?.drawColor(Color.WHITE)
+        inkStrokes.clear() // Clear AndroidX Ink strokes
         invalidate()
     }
 
@@ -301,6 +323,7 @@ class DrawingView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        // Clean up resources
+        // Clean up AndroidX Ink resources
+        inkStrokes.clear()
     }
 }
