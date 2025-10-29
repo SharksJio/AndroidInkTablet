@@ -62,10 +62,14 @@ dependencies {
     implementation 'com.google.android.material:material:1.10.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // AndroidX Ink Library for digital ink recognition
-    implementation 'androidx.ink:ink-geometry:1.0.0-alpha06'
-    implementation 'androidx.ink:ink-rendering:1.0.0-alpha06'
-    implementation 'androidx.ink:ink-strokes:1.0.0-alpha06'
+    // AndroidX Ink Library - Currently disabled due to API incompatibility
+    // The androidx.ink library alpha versions have unstable APIs
+    // Uncomment and update API calls when stable version is released
+    // implementation 'androidx.ink:ink-brush:1.0.0-alpha06'
+    // implementation 'androidx.ink:ink-geometry:1.0.0-alpha06'
+    // implementation 'androidx.ink:ink-rendering:1.0.0-alpha06'
+    // implementation 'androidx.ink:ink-strokes:1.0.0-alpha06'
+    // implementation 'androidx.ink:ink-authoring:1.0.0-alpha06'
     
     // Additional dependencies for drawing and graphics
     implementation 'androidx.fragment:fragment-ktx:1.6.2'
