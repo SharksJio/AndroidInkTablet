@@ -63,9 +63,9 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
     // AndroidX Ink Library for digital ink recognition
-    implementation 'androidx.ink:ink-geometry:1.0.0-alpha06'
-    implementation 'androidx.ink:ink-rendering:1.0.0-alpha06'
-    implementation 'androidx.ink:ink-strokes:1.0.0-alpha06'
+    implementation 'androidx.ink:ink-geometry:1.0.0-beta01'
+    implementation 'androidx.ink:ink-rendering:1.0.0-beta01'
+    implementation 'androidx.ink:ink-strokes:1.0.0-beta01'
     
     // Additional dependencies for drawing and graphics
     implementation 'androidx.fragment:fragment-ktx:1.6.2'

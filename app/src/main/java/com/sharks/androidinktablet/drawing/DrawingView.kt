@@ -111,13 +111,7 @@ class DrawingView @JvmOverloads constructor(
         }
 
         // Start AndroidX Ink stroke
-        inProgressStroke = InProgressStroke.create(
-            StrokeInput.create(
-                x = x,
-                y = y,
-                elapsedTimeMillis = timestamp
-            )
-        )
+        inProgressStroke = InProgressStroke.Builder().build()
 
         invalidate()
     }
@@ -132,13 +126,11 @@ class DrawingView @JvmOverloads constructor(
             stroke.timestamps.add(timestamp)
 
             // Add point to AndroidX Ink stroke
-            inProgressStroke?.addInputs(
-                listOf(
-                    StrokeInput.create(
-                        x = x,
-                        y = y,
-                        elapsedTimeMillis = timestamp
-                    )
+            inProgressStroke?.enqueueInput(
+                StrokeInput(
+                    x = x,
+                    y = y,
+                    elapsedTimeMillis = timestamp
                 )
             )
 
@@ -160,7 +152,7 @@ class DrawingView @JvmOverloads constructor(
             // Finish AndroidX Ink stroke
             inProgressStroke?.let { inkStroke ->
                 try {
-                    val finishedStroke = inkStroke.asImmutable()
+                    val finishedStroke = inkStroke.finishStroke()
                     inkStrokes.add(finishedStroke)
                 } catch (e: Exception) {
                     // Handle error in finishing stroke
