@@ -8,13 +8,16 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import com.google.mlkit.vision.digitalink.*
+import androidx.ink.strokes.InProgressStroke
+import androidx.ink.strokes.Stroke as InkStroke
+import androidx.ink.geometry.MutableVec
+import androidx.ink.strokes.StrokeInput
 import java.util.*
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Custom view for handling drawing with Google Ink API support
+ * Custom view for handling drawing with AndroidX Ink Library support
  */
 class DrawingView @JvmOverloads constructor(
     context: Context,
@@ -37,11 +40,9 @@ class DrawingView @JvmOverloads constructor(
 
     private var onStrokeChangedListener: (() -> Unit)? = null
 
-    // Google Ink API
-    private var inkBuilder = Ink.builder()
-    private var strokeBuilder: Ink.Stroke.Builder? = null
-    private var recognizer: DigitalInkRecognizer? = null
-    private var modelManager: DigitalInkRecognitionModelManager = DigitalInkRecognitionModelManager.getInstance()
+    // AndroidX Ink Library
+    private var inProgressStroke: InProgressStroke? = null
+    private val inkStrokes = mutableListOf<InkStroke>()
 
     private val backgroundPaint = Paint().apply {
         color = Color.WHITE
@@ -109,10 +110,14 @@ class DrawingView @JvmOverloads constructor(
             timestamps.add(timestamp)
         }
 
-        // Start Google Ink stroke for recognition
-        strokeBuilder = Ink.Stroke.builder().apply {
-            addPoint(Ink.Point.create(x, y, timestamp))
-        }
+        // Start AndroidX Ink stroke
+        inProgressStroke = InProgressStroke.create(
+            StrokeInput.create(
+                x = x,
+                y = y,
+                elapsedTimeMillis = timestamp
+            )
+        )
 
         invalidate()
     }
@@ -126,8 +131,16 @@ class DrawingView @JvmOverloads constructor(
             stroke.pressures.add(adjustedPressure)
             stroke.timestamps.add(timestamp)
 
-            // Add point to Google Ink stroke
-            strokeBuilder?.addPoint(Ink.Point.create(x, y, timestamp))
+            // Add point to AndroidX Ink stroke
+            inProgressStroke?.addInputs(
+                listOf(
+                    StrokeInput.create(
+                        x = x,
+                        y = y,
+                        elapsedTimeMillis = timestamp
+                    )
+                )
+            )
 
             invalidate()
         }
@@ -144,15 +157,20 @@ class DrawingView @JvmOverloads constructor(
                 canvas.drawPath(stroke.path, paint)
             }
 
-            // Add to Google Ink for recognition
-            strokeBuilder?.let { builder ->
-                inkBuilder.addStroke(builder.build())
+            // Finish AndroidX Ink stroke
+            inProgressStroke?.let { inkStroke ->
+                try {
+                    val finishedStroke = inkStroke.asImmutable()
+                    inkStrokes.add(finishedStroke)
+                } catch (e: Exception) {
+                    // Handle error in finishing stroke
+                }
             }
 
             // Add to command history
             addCommand(DrawingCommand.AddStroke(stroke))
             currentStroke = null
-            strokeBuilder = null
+            inProgressStroke = null
 
             onStrokeChangedListener?.invoke()
             invalidate()
@@ -257,7 +275,7 @@ class DrawingView @JvmOverloads constructor(
         addCommand(DrawingCommand.Clear(strokesCopy))
         
         drawCanvas?.drawColor(Color.WHITE)
-        inkBuilder = Ink.builder() // Reset ink for recognition
+        inkStrokes.clear() // Clear AndroidX Ink strokes
         invalidate()
     }
 
@@ -301,33 +319,9 @@ class DrawingView @JvmOverloads constructor(
             return
         }
 
-        val ink = inkBuilder.build()
-        
-        // Setup text recognition
-        val model = DigitalInkRecognitionModel.builder("en-US").build()
-        val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("en-US")
-        
-        if (modelIdentifier == null) {
-            Toast.makeText(context, "Language not supported", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        recognizer = DigitalInkRecognition.getClient(
-            DigitalInkRecognizerOptions.builder(model).build()
-        )
-
-        recognizer?.recognize(ink)
-            ?.addOnSuccessListener { result ->
-                if (result.candidates.isNotEmpty()) {
-                    val recognizedText = result.candidates[0].text
-                    Toast.makeText(context, "Recognized: $recognizedText", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(context, "No text recognized", Toast.LENGTH_SHORT).show()
-                }
-            }
-            ?.addOnFailureListener { e ->
-                Toast.makeText(context, "Recognition failed: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+        // AndroidX Ink Library doesn't include text recognition out of the box
+        // Text recognition would require integration with a separate ML model
+        Toast.makeText(context, "Text recognition requires ML model integration", Toast.LENGTH_SHORT).show()
     }
 
     fun performShapeDetection() {
@@ -337,6 +331,7 @@ class DrawingView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        recognizer?.close()
+        // Clean up AndroidX Ink resources
+        inkStrokes.clear()
     }
 }

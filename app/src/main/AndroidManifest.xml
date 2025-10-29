@@ -46,11 +46,6 @@
             android:theme="@style/Theme.AndroidInkTablet"
             android:screenOrientation="unspecified"
             android:configChanges="orientation|keyboardHidden|screenSize" />
-        
-        <!-- ML Kit Digital Ink Recognition model metadata -->
-        <meta-data
-            android:name="com.google.mlkit.vision.DEPENDENCIES"
-            android:value="digital_ink" />
             
     </application>
 
