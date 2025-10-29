@@ -34,7 +34,7 @@ A complete note-taking application using AndroidX Ink Library for Android 14+ wi
 - **Build Tools**: 36.0.0
 - **Architecture**: MVVM with custom drawing engine
 - **Dependencies**:
-  - AndroidX Ink Library (alpha06)
+  - AndroidX Ink Library (currently disabled due to alpha API instability)
   - Material Components 3
   - AndroidX libraries
   - Kotlin Coroutines
