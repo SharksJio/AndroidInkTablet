@@ -3,28 +3,38 @@ package com.sharks.androidinktablet
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.pdf.PdfRenderer
+import android.net.Uri
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.ImageButton
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.slider.Slider
 import com.sharks.androidinktablet.drawing.DrawingView
+import com.sharks.androidinktablet.drawing.Stroke
 import com.sharks.androidinktablet.drawing.Tool
 import com.sharks.androidinktablet.drawing.ToolType
 import com.sharks.androidinktablet.ui.ColorPickerDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
 
 /**
  * Main activity for the Android Ink Tablet application.
@@ -50,11 +60,26 @@ class MainActivity : AppCompatActivity() {
     // FABs
     private lateinit var fabUndo: FloatingActionButton
     private lateinit var fabRedo: FloatingActionButton
+
+    // PDF Controls
+    private lateinit var pdfControls: MaterialCardView
+    private lateinit var btnPrevPage: ImageButton
+    private lateinit var btnNextPage: ImageButton
+    private lateinit var tvPageNumber: TextView
     
     private var currentTool = ToolType.PEN
     private var currentColor = Color.BLACK
     private var currentSize = 5f
     private var pressureSensitivity = 1.0f
+
+    // PDF State
+    private var pdfRenderer: PdfRenderer? = null
+    private var currentPdfPage: PdfRenderer.Page? = null
+    private var fileDescriptor: ParcelFileDescriptor? = null
+    private var loadPageJob: kotlinx.coroutines.Job? = null
+    private var currentPageIndex = 0
+    private var totalPages = 0
+    private val pageStrokes = mutableMapOf<Int, List<Stroke>>()
 
     private val imagePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -62,6 +87,16 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == RESULT_OK) {
             result.data?.data?.let { uri ->
                 drawingView.insertImage(uri)
+            }
+        }
+    }
+
+    private val pdfPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { uri ->
+                openPdf(uri)
             }
         }
     }
@@ -93,6 +128,7 @@ class MainActivity : AppCompatActivity() {
         setupToolButtons()
         setupFloatingActionButtons()
         setupSettingsPanel()
+        setupPdfControls()
         
         // Set initial tool
         selectTool(ToolType.PEN)
@@ -114,6 +150,11 @@ class MainActivity : AppCompatActivity() {
         
         fabUndo = findViewById(R.id.fabUndo)
         fabRedo = findViewById(R.id.fabRedo)
+
+        pdfControls = findViewById(R.id.pdfControls)
+        btnPrevPage = findViewById(R.id.btnPrevPage)
+        btnNextPage = findViewById(R.id.btnNextPage)
+        tvPageNumber = findViewById(R.id.tvPageNumber)
     }
 
     private fun setupDrawingView() {
@@ -124,6 +165,12 @@ class MainActivity : AppCompatActivity() {
         
         val canvasContainer = findViewById<android.widget.FrameLayout>(R.id.canvasContainer)
         canvasContainer.addView(drawingView)
+
+        drawingView.onRequestPdfRefresh = {
+            if (pdfRenderer != null) {
+                showPage(currentPageIndex)
+            }
+        }
     }
 
     private fun setupToolbar() {
@@ -156,6 +203,20 @@ class MainActivity : AppCompatActivity() {
         }
         
         updateUndoRedoButtons()
+    }
+
+    private fun setupPdfControls() {
+        btnPrevPage.setOnClickListener {
+            if (currentPageIndex > 0) {
+                showPage(currentPageIndex - 1)
+            }
+        }
+
+        btnNextPage.setOnClickListener {
+            if (currentPageIndex < totalPages - 1) {
+                showPage(currentPageIndex + 1)
+            }
+        }
     }
 
     private fun setupSettingsPanel() {
@@ -241,6 +302,107 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun handlePdfSelection() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/pdf"
+        }
+        pdfPickerLauncher.launch(intent)
+    }
+
+    private fun openPdf(uri: Uri) {
+        try {
+            contentResolver.openFileDescriptor(uri, "r")?.let { descriptor ->
+                fileDescriptor = descriptor
+                pdfRenderer = PdfRenderer(descriptor)
+                totalPages = pdfRenderer?.pageCount ?: 0
+
+                if (totalPages > 0) {
+                    pageStrokes.clear()
+                    // If there are existing strokes on canvas, clear them or save them as non-pdf page?
+                    // For now, let's just clear.
+                    drawingView.clearCanvas()
+
+                    pdfControls.visibility = View.VISIBLE
+                    showPage(0)
+                }
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Toast.makeText(this, "Error opening PDF", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showPage(index: Int) {
+        if (pdfRenderer == null || index < 0 || index >= totalPages) return
+
+        // Save strokes of current page
+        pageStrokes[currentPageIndex] = drawingView.getStrokes()
+
+        // Disable buttons to prevent race conditions
+        btnPrevPage.isEnabled = false
+        btnNextPage.isEnabled = false
+
+        loadPageJob?.cancel()
+        loadPageJob = lifecycleScope.launch(Dispatchers.Main) {
+            // Perform rendering with synchronized access
+            val bitmap = withContext(Dispatchers.IO) {
+                synchronized(this@MainActivity) {
+                    // Close current page first if open
+                    currentPdfPage?.close()
+                    currentPdfPage = null
+
+                    try {
+                        currentPdfPage = pdfRenderer?.openPage(index)
+
+                        currentPdfPage?.let { page ->
+                            val viewWidth = drawingView.width
+                            val viewHeight = drawingView.height
+
+                            if (viewWidth > 0 && viewHeight > 0) {
+                                val bmp = Bitmap.createBitmap(viewWidth, viewHeight, Bitmap.Config.ARGB_8888)
+
+                                val scale = kotlin.math.min(
+                                    viewWidth.toFloat() / page.width,
+                                    viewHeight.toFloat() / page.height
+                                )
+
+                                val matrix = android.graphics.Matrix()
+                                matrix.setScale(scale, scale)
+                                val offsetX = (viewWidth - page.width * scale) / 2
+                                val offsetY = (viewHeight - page.height * scale) / 2
+                                matrix.postTranslate(offsetX, offsetY)
+
+                                page.render(bmp, null, matrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                return@let bmp
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    null
+                }
+            }
+
+            bitmap?.let {
+                drawingView.setPdfBitmap(it)
+            }
+
+            currentPageIndex = index
+            tvPageNumber.text = "${currentPageIndex + 1} / $totalPages"
+
+            // Load strokes for new page
+            drawingView.setStrokes(pageStrokes[index] ?: emptyList())
+
+            // Update buttons
+            btnPrevPage.isEnabled = currentPageIndex > 0
+            btnNextPage.isEnabled = currentPageIndex < totalPages - 1
+
+            // Reset undo/redo buttons
+            updateUndoRedoButtons()
+        }
+    }
+
     private fun openImagePicker() {
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
         imagePickerLauncher.launch(intent)
@@ -258,9 +420,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_open_pdf -> {
+                handlePdfSelection()
+                true
+            }
             R.id.action_new -> {
                 drawingView.clearCanvas()
                 updateUndoRedoButtons()
+                // Close PDF if open
+                closePdf()
                 true
             }
             R.id.action_save -> {
@@ -292,5 +460,23 @@ class MainActivity : AppCompatActivity() {
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun closePdf() {
+        currentPdfPage?.close()
+        currentPdfPage = null
+        pdfRenderer?.close()
+        pdfRenderer = null
+        fileDescriptor?.close()
+        fileDescriptor = null
+        pdfControls.visibility = View.GONE
+        drawingView.setPdfBitmap(null)
+        pageStrokes.clear()
+        currentPageIndex = 0
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        closePdf()
     }
 }
