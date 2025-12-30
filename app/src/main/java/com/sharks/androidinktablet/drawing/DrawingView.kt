@@ -1,7 +1,17 @@
 package com.sharks.androidinktablet.drawing
 
 import android.content.Context
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.DashPathEffect
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PointF
+import android.graphics.PorterDuff
+import android.graphics.RectF
+import android.graphics.Region
 import android.net.Uri
 import android.util.AttributeSet
 import android.view.MotionEvent
@@ -35,10 +45,32 @@ class DrawingView @JvmOverloads constructor(
     private var currentTool = Tool(ToolType.PEN, Color.BLACK, 5f)
     private var currentStroke: Stroke? = null
     private val strokes = mutableListOf<Stroke>()
+
+    // Lasso Selection
+    private val selectedStrokes = mutableListOf<Stroke>()
+    private var isSelectionActive = false
+    private val selectionBounds = RectF()
+    private var isMovingSelection = false
+    private var lastTouchX = 0f
+    private var lastTouchY = 0f
+    private var totalSelectionDx = 0f
+    private var totalSelectionDy = 0f
+    private val selectionPaint = Paint().apply {
+        color = Color.BLUE
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        pathEffect = DashPathEffect(floatArrayOf(10f, 10f), 0f)
+    }
+
+    // PDF Support
+    private var pdfBitmap: Bitmap? = null
+    private val pdfPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+
     private val commandHistory = mutableListOf<DrawingCommand>()
     private var historyIndex = -1
 
     private var onStrokeChangedListener: (() -> Unit)? = null
+    var onRequestPdfRefresh: (() -> Unit)? = null
 
     // AndroidX Ink Library
     private var inProgressStroke: InProgressStroke? = null
@@ -57,17 +89,50 @@ class DrawingView @JvmOverloads constructor(
         if (w > 0 && h > 0) {
             canvasBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             drawCanvas = Canvas(canvasBitmap!!)
-            drawCanvas?.drawColor(Color.WHITE)
+            // Make background transparent to show PDF behind
+            drawCanvas?.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
             redrawAllStrokes()
+
+            // Refresh PDF if active
+            if (pdfBitmap != null) {
+                onRequestPdfRefresh?.invoke()
+            }
         }
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         
-        // Draw the cached bitmap
+        // Draw PDF background if available, otherwise white background
+        if (pdfBitmap != null) {
+            // Draw white background first to handle transparent PDFs
+            canvas.drawColor(Color.WHITE)
+            canvas.drawBitmap(pdfBitmap!!, 0f, 0f, pdfPaint)
+        } else {
+            canvas.drawColor(Color.WHITE)
+        }
+
+        // Draw the cached bitmap (contains unselected strokes)
         canvasBitmap?.let { bitmap ->
             canvas.drawBitmap(bitmap, 0f, 0f, null)
+        }
+
+        // Draw selected strokes
+        if (isSelectionActive) {
+            for (stroke in selectedStrokes) {
+                configurePaintForTool(stroke.tool)
+                // Highlight selected strokes slightly
+                val originalAlpha = paint.alpha
+                paint.alpha = (originalAlpha * 0.5f).toInt()
+                paint.strokeWidth += 2f
+                canvas.drawPath(stroke.path, paint)
+
+                // Restore paint
+                configurePaintForTool(stroke.tool)
+                canvas.drawPath(stroke.path, paint)
+            }
+            // Draw selection bounding box
+            canvas.drawRect(selectionBounds, selectionPaint)
         }
 
         // Draw current stroke if in progress
@@ -85,14 +150,48 @@ class DrawingView @JvmOverloads constructor(
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                if (isSelectionActive && selectionBounds.contains(x, y)) {
+                    isMovingSelection = true
+                    lastTouchX = x
+                    lastTouchY = y
+                    totalSelectionDx = 0f
+                    totalSelectionDy = 0f
+                    return true
+                } else if (isSelectionActive) {
+                    // Tap outside selection deselects
+                    deselectAll()
+                    // Fall through to start new stroke if tool is not Lasso?
+                    // Or just consume event. Let's just deselect and consume.
+                    return true
+                }
+
                 startNewStroke(x, y, pressure, timestamp)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
+                if (isMovingSelection) {
+                    val dx = x - lastTouchX
+                    val dy = y - lastTouchY
+                    moveSelection(dx, dy)
+                    totalSelectionDx += dx
+                    totalSelectionDy += dy
+                    lastTouchX = x
+                    lastTouchY = y
+                    return true
+                }
+
                 continueStroke(x, y, pressure, timestamp)
                 return true
             }
             MotionEvent.ACTION_UP -> {
+                if (isMovingSelection) {
+                    isMovingSelection = false
+                    if (totalSelectionDx != 0f || totalSelectionDy != 0f) {
+                        addCommand(DrawingCommand.Transform(selectedStrokes.toList(), totalSelectionDx, totalSelectionDy))
+                    }
+                    return true
+                }
+
                 finishStroke()
                 return true
             }
@@ -140,7 +239,17 @@ class DrawingView @JvmOverloads constructor(
 
     private fun finishStroke() {
         currentStroke?.let { stroke ->
-            // Add to strokes list
+            if (stroke.tool.type == ToolType.LASSO) {
+                // Handle Lasso Selection
+                stroke.path.close() // Close the loop
+                performLassoSelection(stroke.path)
+                currentStroke = null
+                inProgressStroke = null
+                invalidate()
+                return
+            }
+
+            // Normal stroke
             strokes.add(stroke)
             
             // Draw to canvas bitmap
@@ -167,6 +276,81 @@ class DrawingView @JvmOverloads constructor(
             onStrokeChangedListener?.invoke()
             invalidate()
         }
+    }
+
+    private fun performLassoSelection(lassoPath: Path) {
+        val lassoRegion = Region()
+        val clipRegion = Region(0, 0, width, height)
+        lassoRegion.setPath(lassoPath, clipRegion)
+
+        val newSelected = mutableListOf<Stroke>()
+        val it = strokes.iterator()
+        while (it.hasNext()) {
+            val stroke = it.next()
+            val bounds = RectF()
+            stroke.path.computeBounds(bounds, true)
+            val strokeRegion = Region()
+            strokeRegion.setPath(stroke.path, clipRegion)
+
+            // Check for intersection without modifying the original lassoRegion
+            if (!lassoRegion.quickReject(strokeRegion)) {
+                val intersection = Region(lassoRegion)
+                if (intersection.op(strokeRegion, Region.Op.INTERSECT) && !intersection.isEmpty) {
+                    newSelected.add(stroke)
+                    it.remove()
+                }
+            }
+        }
+
+        if (newSelected.isNotEmpty()) {
+            selectedStrokes.addAll(newSelected)
+            isSelectionActive = true
+            updateSelectionBounds()
+            redrawAllStrokes() // To remove selected strokes from bitmap
+        }
+    }
+
+    private fun updateSelectionBounds() {
+        if (selectedStrokes.isEmpty()) {
+            selectionBounds.setEmpty()
+            return
+        }
+
+        val path = Path()
+        selectedStrokes.forEach { path.addPath(it.path) }
+        path.computeBounds(selectionBounds, true)
+        // Add some padding
+        selectionBounds.inset(-10f, -10f)
+    }
+
+    private fun moveSelection(dx: Float, dy: Float) {
+        transformStrokes(selectedStrokes, dx, dy)
+        selectionBounds.offset(dx, dy)
+        invalidate()
+    }
+
+    private fun transformStrokes(strokesToTransform: List<Stroke>, dx: Float, dy: Float) {
+        val matrix = Matrix()
+        matrix.setTranslate(dx, dy)
+
+        for (stroke in strokesToTransform) {
+            stroke.path.transform(matrix)
+            for (point in stroke.points) {
+                point.x += dx
+                point.y += dy
+            }
+        }
+    }
+
+    private fun deselectAll() {
+        if (selectedStrokes.isNotEmpty()) {
+            strokes.addAll(selectedStrokes)
+            selectedStrokes.clear()
+            redrawAllStrokes() // Add them back to bitmap
+        }
+        isSelectionActive = false
+        selectionBounds.setEmpty()
+        invalidate()
     }
 
     private fun configurePaintForTool(tool: Tool) {
@@ -202,7 +386,7 @@ class DrawingView @JvmOverloads constructor(
 
     private fun redrawAllStrokes() {
         drawCanvas?.let { canvas ->
-            canvas.drawColor(Color.WHITE)
+            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
             for (stroke in strokes) {
                 configurePaintForTool(stroke.tool)
                 canvas.drawPath(stroke.path, paint)
@@ -212,6 +396,9 @@ class DrawingView @JvmOverloads constructor(
 
     // Public API methods
     fun setCurrentTool(tool: Tool) {
+        if (isSelectionActive && tool.type != ToolType.LASSO) {
+            deselectAll()
+        }
         currentTool = tool
     }
 
@@ -221,6 +408,9 @@ class DrawingView @JvmOverloads constructor(
 
     fun undo() {
         if (canUndo()) {
+            // If selection active, deselect first to avoid complications
+            if (isSelectionActive) deselectAll()
+
             historyIndex--
             when (val command = commandHistory[historyIndex + 1]) {
                 is DrawingCommand.AddStroke -> {
@@ -232,6 +422,9 @@ class DrawingView @JvmOverloads constructor(
                 is DrawingCommand.Clear -> {
                     strokes.addAll(command.strokes)
                 }
+                is DrawingCommand.Transform -> {
+                    transformStrokes(command.strokes, -command.dx, -command.dy)
+                }
             }
             redrawAllStrokes()
             invalidate()
@@ -240,6 +433,9 @@ class DrawingView @JvmOverloads constructor(
 
     fun redo() {
         if (canRedo()) {
+             // If selection active, deselect first
+            if (isSelectionActive) deselectAll()
+
             historyIndex++
             when (val command = commandHistory[historyIndex]) {
                 is DrawingCommand.AddStroke -> {
@@ -250,6 +446,9 @@ class DrawingView @JvmOverloads constructor(
                 }
                 is DrawingCommand.Clear -> {
                     strokes.clear()
+                }
+                is DrawingCommand.Transform -> {
+                    transformStrokes(command.strokes, command.dx, command.dy)
                 }
             }
             redrawAllStrokes()
@@ -262,11 +461,13 @@ class DrawingView @JvmOverloads constructor(
     fun canRedo(): Boolean = historyIndex < commandHistory.size - 1
 
     fun clearCanvas() {
+        if (isSelectionActive) deselectAll()
+
         val strokesCopy = strokes.toList()
         strokes.clear()
         addCommand(DrawingCommand.Clear(strokesCopy))
         
-        drawCanvas?.drawColor(Color.WHITE)
+        drawCanvas?.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
         inkStrokes.clear() // Clear AndroidX Ink strokes
         invalidate()
     }
@@ -285,6 +486,25 @@ class DrawingView @JvmOverloads constructor(
             commandHistory.removeFirst()
             historyIndex--
         }
+    }
+
+    // PDF Support Methods
+    fun setPdfBitmap(bitmap: Bitmap?) {
+        pdfBitmap = bitmap
+        invalidate()
+    }
+
+    fun getStrokes(): List<Stroke> {
+        if (isSelectionActive) deselectAll()
+        return strokes.toList()
+    }
+
+    fun setStrokes(newStrokes: List<Stroke>) {
+        if (isSelectionActive) deselectAll()
+        strokes.clear()
+        strokes.addAll(newStrokes)
+        redrawAllStrokes()
+        invalidate()
     }
 
     // Image insertion

@@ -21,4 +21,5 @@ sealed class DrawingCommand {
     data class AddStroke(val stroke: Stroke) : DrawingCommand()
     data class RemoveStroke(val stroke: Stroke) : DrawingCommand()
     data class Clear(val strokes: List<Stroke>) : DrawingCommand()
+    data class Transform(val strokes: List<Stroke>, val dx: Float, val dy: Float) : DrawingCommand()
 }
