@@ -173,8 +173,8 @@ class MainActivity : AppCompatActivity() {
         // Create InProgressStrokesView for handling AndroidX Ink strokes
         val inProgressStrokesView = InProgressStrokesView(this).apply {
             layoutParams = android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
         

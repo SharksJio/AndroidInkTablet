@@ -83,16 +83,21 @@ class DrawingView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         
-        // Draw the cached bitmap
+        // Draw the cached bitmap (finished strokes)
         canvasBitmap?.let { bitmap ->
             canvas.drawBitmap(bitmap, 0f, 0f, null)
         }
 
-        // Draw current stroke if in progress
+        // Draw current stroke if in progress (for backward compatibility)
         currentStroke?.let { stroke ->
             configurePaintForTool(stroke.tool)
             canvas.drawPath(stroke.path, paint)
         }
+        
+        // TODO: Render AndroidX Ink strokes
+        // For proper rendering, we need to use androidx.ink.rendering APIs
+        // or convert ink strokes to Path objects
+        // This is left as future work for full AndroidX Ink integration
     }
     
     /**
@@ -215,10 +220,13 @@ class DrawingView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // Note: When using InProgressStrokesView, this method should NOT be called directly
-        // InProgressStrokesView will handle touch events and provide finalized strokes through the listener
-        // This method is kept for backward compatibility and non-InProgressStrokesView usage
+        // When InProgressStrokesView is active, it handles all touch events
+        // This method should not process touches to avoid double-processing
+        if (inProgressStrokesView != null) {
+            return false  // Let InProgressStrokesView handle the touch
+        }
         
+        // Legacy touch handling (when InProgressStrokesView is not used)
         // Always request unbuffered dispatch for lower latency ink
         requestUnbufferedDispatch(event)
         
