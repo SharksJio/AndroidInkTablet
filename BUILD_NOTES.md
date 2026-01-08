@@ -17,6 +17,16 @@
 - **Fix**: Changed to explicit `maven { url 'https://maven.google.com' }` URL
 - **Note**: Changed `FAIL_ON_PROJECT_REPOS` to `PREFER_SETTINGS` for more flexibility
 
+### 4. Incorrect AndroidX Ink API Usage
+- **Problem**: The app was incorrectly using `InProgressStroke` directly from `androidx.ink.strokes` instead of using the proper AndroidX Ink authoring API
+- **Fix**:
+  - Added `androidx.ink:ink-authoring:1.0.0-beta01` dependency
+  - Updated `DrawingView` to properly integrate with `InProgressStrokesView`
+  - Implemented `InProgressStrokesFinishedListener` to receive finalized strokes
+  - Added `requestUnbufferedDispatch()` for lower latency ink rendering
+  - Properly handles multi-touch through pointer ID management
+  - Updated `MainActivity` to create and layer both `DrawingView` and `InProgressStrokesView`
+
 ## Build Instructions
 
 ### Prerequisites
@@ -61,3 +71,4 @@ The project uses:
 - compileSdk 34
 - minSdk 26
 - targetSdk 34
+- AndroidX Ink Library (beta01) with proper authoring API usage

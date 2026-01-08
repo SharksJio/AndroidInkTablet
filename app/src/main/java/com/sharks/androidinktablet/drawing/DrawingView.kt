@@ -8,10 +8,10 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import androidx.ink.strokes.InProgressStroke
+import androidx.ink.authoring.InProgressStrokesView
+import androidx.ink.authoring.InProgressStrokesFinishedListener
 import androidx.ink.strokes.Stroke as InkStroke
 import androidx.ink.geometry.MutableVec
-import androidx.ink.strokes.StrokeInput
 import com.sharks.androidinktablet.R
 import com.sharks.androidinktablet.model.BackgroundType
 import com.sharks.androidinktablet.model.EraserMode
@@ -24,6 +24,7 @@ import kotlin.math.sqrt
 
 /**
  * Custom view for handling drawing with AndroidX Ink Library support
+ * Now properly uses InProgressStrokesView for stroke handling
  */
 class DrawingView @JvmOverloads constructor(
     context: Context,
@@ -46,9 +47,11 @@ class DrawingView @JvmOverloads constructor(
 
     private var onStrokeChangedListener: (() -> Unit)? = null
 
-    // AndroidX Ink Library
-    private var inProgressStroke: InProgressStroke? = null
+    // AndroidX Ink Library - properly managed
     private val inkStrokes = mutableListOf<InkStroke>()
+    
+    // InProgressStrokesView for handling in-progress strokes
+    private var inProgressStrokesView: InProgressStrokesView? = null
 
     // Background
     private var backgroundType = BackgroundType.PLAIN
@@ -90,6 +93,25 @@ class DrawingView @JvmOverloads constructor(
             configurePaintForTool(stroke.tool)
             canvas.drawPath(stroke.path, paint)
         }
+    }
+    
+    /**
+     * Set the InProgressStrokesView for handling stroke input
+     * This should be called during initialization to properly integrate with AndroidX Ink authoring API
+     */
+    fun setInProgressStrokesView(view: InProgressStrokesView) {
+        inProgressStrokesView = view
+        
+        // Setup listener to get finalized strokes
+        view.addFinishedStrokesListener(object : InProgressStrokesFinishedListener {
+            override fun onStrokesFinished(event: InProgressStrokesView.FinishedStrokesEvent) {
+                // Handle the finalized strokes
+                for (stroke in event.finishedStrokes) {
+                    inkStrokes.add(stroke)
+                }
+                onStrokeChangedListener?.invoke()
+            }
+        })
     }
     
     /**
@@ -186,29 +208,36 @@ class DrawingView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // Always request unbuffered dispatch for lower latency ink
+        requestUnbufferedDispatch(event)
+        
         val x = event.x
         val y = event.y
         val pressure = event.pressure
         val timestamp = System.currentTimeMillis()
+        
+        val action = event.actionMasked
+        val pointerIndex = event.actionIndex
+        val pointerId = event.getPointerId(pointerIndex)
 
-        when (event.action) {
+        when (action) {
             MotionEvent.ACTION_DOWN -> {
-                startNewStroke(x, y, pressure, timestamp)
+                startNewStroke(x, y, pressure, timestamp, event, pointerId)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                continueStroke(x, y, pressure, timestamp)
+                continueStroke(x, y, pressure, timestamp, event)
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                finishStroke()
+                finishStroke(event, pointerId)
                 return true
             }
         }
         return false
     }
 
-    private fun startNewStroke(x: Float, y: Float, pressure: Float, timestamp: Long) {
+    private fun startNewStroke(x: Float, y: Float, pressure: Float, timestamp: Long, event: MotionEvent, pointerId: Int) {
         val adjustedPressure = pressure * currentTool.pressureSensitivity
         
         currentStroke = Stroke(Path(), currentTool.copy()).apply {
@@ -218,13 +247,13 @@ class DrawingView @JvmOverloads constructor(
             timestamps.add(timestamp)
         }
 
-        // Start AndroidX Ink stroke
-        inProgressStroke = InProgressStroke.Builder().build()
+        // Use InProgressStrokesView to start the stroke if available
+        inProgressStrokesView?.startStroke(event, pointerId)
 
         invalidate()
     }
 
-    private fun continueStroke(x: Float, y: Float, pressure: Float, timestamp: Long) {
+    private fun continueStroke(x: Float, y: Float, pressure: Float, timestamp: Long, event: MotionEvent) {
         currentStroke?.let { stroke ->
             val adjustedPressure = pressure * currentTool.pressureSensitivity
             
@@ -233,20 +262,15 @@ class DrawingView @JvmOverloads constructor(
             stroke.pressures.add(adjustedPressure)
             stroke.timestamps.add(timestamp)
 
-            // Add point to AndroidX Ink stroke
-            inProgressStroke?.enqueueInput(
-                StrokeInput(
-                    x = x,
-                    y = y,
-                    elapsedTimeMillis = timestamp
-                )
-            )
+            // InProgressStrokesView automatically handles ACTION_MOVE events
+            // through its own touch handling, so we just need to update our local stroke
+            inProgressStrokesView?.addToStroke(event, 0)
 
             invalidate()
         }
     }
 
-    private fun finishStroke() {
+    private fun finishStroke(event: MotionEvent, pointerId: Int) {
         currentStroke?.let { stroke ->
             // Add to strokes list
             strokes.add(stroke)
@@ -257,20 +281,12 @@ class DrawingView @JvmOverloads constructor(
                 canvas.drawPath(stroke.path, paint)
             }
 
-            // Finish AndroidX Ink stroke
-            inProgressStroke?.let { inkStroke ->
-                try {
-                    val finishedStroke = inkStroke.finishStroke()
-                    inkStrokes.add(finishedStroke)
-                } catch (e: Exception) {
-                    // Handle error in finishing stroke
-                }
-            }
+            // Finish the stroke in InProgressStrokesView
+            inProgressStrokesView?.finishStroke(event, pointerId)
 
             // Add to command history
             addCommand(DrawingCommand.AddStroke(stroke))
             currentStroke = null
-            inProgressStroke = null
 
             onStrokeChangedListener?.invoke()
             invalidate()
