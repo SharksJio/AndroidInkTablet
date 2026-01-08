@@ -42,6 +42,7 @@
     <string name="dialog_load_title">Load Drawing</string>
     <string name="dialog_clear_title">Clear Page</string>
     <string name="dialog_clear_message">Are you sure you want to clear the entire page? This action cannot be undone.</string>
+    <string name="dialog_new_drawing_message">Create a new drawing? Unsaved changes will be lost.</string>
     <string name="button_yes">Yes</string>
     <string name="button_no">No</string>
     <string name="button_cancel">Cancel</string>

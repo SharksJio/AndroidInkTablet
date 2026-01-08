@@ -17,6 +17,7 @@ import com.sharks.androidinktablet.model.BackgroundType
 import com.sharks.androidinktablet.model.EraserMode
 import com.sharks.androidinktablet.model.ShapeType
 import java.util.*
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -420,7 +421,7 @@ class DrawingView @JvmOverloads constructor(
             
             when (shapeType) {
                 ShapeType.CIRCLE -> {
-                    val radius = sqrt((endX - startX) * (endX - startX) + (endY - startY) * (endY - startY))
+                    val radius = hypot(endX - startX, endY - startY)
                     canvas.drawCircle(startX, startY, radius, shapePaint)
                 }
                 ShapeType.RECTANGLE -> {

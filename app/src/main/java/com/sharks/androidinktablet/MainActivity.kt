@@ -544,7 +544,7 @@ class MainActivity : AppCompatActivity() {
     private fun createNewFile() {
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.menu_new)
-            .setMessage("Create a new drawing? Unsaved changes will be lost.")
+            .setMessage(R.string.dialog_new_drawing_message)
             .setPositiveButton(R.string.button_yes) { _, _ ->
                 drawingView.clearCanvas()
                 viewModel.createNewFile()
