@@ -169,6 +169,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDrawingView() {
+        // Create DrawingView which internally manages InProgressStrokesView and CanvasStrokeRenderer
         drawingView = DrawingView(this)
         drawingView.setOnStrokeChangedListener {
             viewModel.updateUndoRedoState(drawingView.canUndo(), drawingView.canRedo())

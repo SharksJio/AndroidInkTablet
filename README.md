@@ -81,7 +81,11 @@ A production-quality note-taking and writing application using AndroidX Ink Libr
 - Android Studio Arctic Fox or later
 - Android SDK 34
 - Kotlin 1.9.20+
-- Gradle 8.0+
+- Gradle 8.7 (included via wrapper)
+- JDK 17 or later
+- Internet access to maven.google.com
+
+> **Note**: The build configuration has been updated to use Android Gradle Plugin 8.3.0 and Build Tools 34.0.0 for compatibility with modern Android development. See [BUILD_NOTES.md](BUILD_NOTES.md) for details on recent fixes.
 
 ### Setup Instructions
 

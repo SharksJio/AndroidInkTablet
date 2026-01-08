@@ -5,60 +5,56 @@ import android.graphics.*
 import android.net.Uri
 import android.util.AttributeSet
 import android.view.MotionEvent
-import android.view.View
+import android.widget.FrameLayout
 import android.widget.Toast
-import androidx.core.content.ContextCompat
-import androidx.ink.strokes.InProgressStroke
+import androidx.ink.authoring.InProgressStrokesView
+import androidx.ink.authoring.InProgressStrokesFinishedListener
+import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import androidx.ink.strokes.Stroke as InkStroke
-import androidx.ink.geometry.MutableVec
-import androidx.ink.strokes.StrokeInput
-import com.sharks.androidinktablet.R
+import androidx.ink.brush.Brush
+import androidx.ink.brush.StockBrushes
+import androidx.ink.brush.BrushPaint
 import com.sharks.androidinktablet.model.BackgroundType
 import com.sharks.androidinktablet.model.EraserMode
 import com.sharks.androidinktablet.model.ShapeType
-import java.util.*
 import kotlin.math.hypot
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.sqrt
 
 /**
- * Custom view for handling drawing with AndroidX Ink Library support
+ * Custom drawing container that properly uses AndroidX Ink Library
+ * Architecture based on reference projects:
+ * - https://github.com/SharksJio/cahier
+ * - https://github.com/NicosNicolaou16/Ink_Api_Compose
  */
 class DrawingView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : View(context, attrs, defStyleAttr) {
+) : FrameLayout(context, attrs, defStyleAttr) {
 
-    private val paint = Paint().apply {
-        isAntiAlias = true
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
-    }
-
-    private var currentTool = Tool(ToolType.PEN, Color.BLACK, 5f)
-    private var currentStroke: Stroke? = null
-    private val strokes = mutableListOf<Stroke>()
+    // AndroidX Ink components
+    private val inProgressStrokesView: InProgressStrokesView
+    private val strokeRenderer: CanvasStrokeRenderer
+    
+    // Stroke management
+    private val finishedStrokes = mutableListOf<InkStroke>()
     private val commandHistory = mutableListOf<DrawingCommand>()
     private var historyIndex = -1
-
+    
+    // Current tool and brush settings
+    private var currentBrush: Brush
+    private var currentColor = Color.BLACK
+    private var currentSize = 5f
+    
+    // Track pointer to stroke ID mapping for multi-touch
+    private val pointerToStrokeId = mutableMapOf<Int, androidx.ink.strokes.InProgressStrokeId>()
+    
+    // Listeners
     private var onStrokeChangedListener: (() -> Unit)? = null
-
-    // AndroidX Ink Library
-    private var inProgressStroke: InProgressStroke? = null
-    private val inkStrokes = mutableListOf<InkStroke>()
-
+    
     // Background
     private var backgroundType = BackgroundType.PLAIN
-    private val backgroundPaint = Paint().apply {
-        color = Color.WHITE
-    }
-
-    // Canvas bitmap for performance
-    private var canvasBitmap: Bitmap? = null
-    private var drawCanvas: Canvas? = null
+    private var backgroundBitmap: Bitmap? = null
+    private var backgroundCanvas: Canvas? = null
     
     // Eraser mode
     private var eraserMode = EraserMode.PART
@@ -66,37 +62,142 @@ class DrawingView @JvmOverloads constructor(
     // Text and shape support
     private var onTextInsertListener: ((Float, Float) -> Unit)? = null
     private var onShapeInsertListener: ((ShapeType, Float, Float, Float, Float) -> Unit)? = null
-
+    
+    init {
+        // Initialize InProgressStrokesView
+        inProgressStrokesView = InProgressStrokesView(context).apply {
+            layoutParams = LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.MATCH_PARENT
+            )
+        }
+        addView(inProgressStrokesView)
+        
+        // Initialize stroke renderer
+        strokeRenderer = CanvasStrokeRenderer.create()
+        
+        // Initialize default brush (pen)
+        currentBrush = createBrush(currentColor, currentSize)
+        
+        // Setup touch handling
+        setupTouchHandling()
+        
+        // Setup finished strokes listener
+        setupFinishedStrokesListener()
+    }
+    
+    private fun createBrush(color: Int, size: Float): Brush {
+        val brushFamily = StockBrushes.markerLatest  // Using marker as default
+        val brushPaint = BrushPaint.createWithColorIntArgb(color)
+        return Brush(
+            family = brushFamily,
+            size = size,
+            epsilon = 0.1f
+        ).apply {
+            paint = brushPaint
+        }
+    }
+    
+    private fun setupTouchHandling() {
+        inProgressStrokesView.setOnTouchListener { view, event ->
+            // Always request unbuffered dispatch for lower latency ink
+            view.requestUnbufferedDispatch(event)
+            
+            handleTouchEvent(event)
+            true // Consume the event
+        }
+    }
+    
+    private fun handleTouchEvent(event: MotionEvent) {
+        val action = event.actionMasked
+        val pointerIndex = event.actionIndex
+        val pointerId = event.getPointerId(pointerIndex)
+        
+        when (action) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                // START: Creates an internal InProgressStroke
+                val strokeId = inProgressStrokesView.startStroke(event, pointerId, currentBrush)
+                pointerToStrokeId[pointerId] = strokeId
+            }
+            
+            MotionEvent.ACTION_MOVE -> {
+                // MOVE: Updates the internal InProgressStroke
+                // Handle all active pointers for multi-touch
+                for (i in 0 until event.pointerCount) {
+                    val pId = event.getPointerId(i)
+                    val strokeId = pointerToStrokeId[pId]
+                    if (strokeId != null) {
+                        inProgressStrokesView.addToStroke(event, pId, strokeId, prediction = null)
+                    }
+                }
+            }
+            
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                // FINISH: Finalizes the InProgressStroke into a Stroke
+                val strokeId = pointerToStrokeId[pointerId]
+                if (strokeId != null) {
+                    inProgressStrokesView.finishStroke(event, pointerId, strokeId)
+                    pointerToStrokeId.remove(pointerId)
+                }
+            }
+            
+            MotionEvent.ACTION_CANCEL -> {
+                // CANCEL: Cancels the in-progress stroke
+                val strokeId = pointerToStrokeId[pointerId]
+                if (strokeId != null) {
+                    inProgressStrokesView.cancelStroke(strokeId, event)
+                    pointerToStrokeId.remove(pointerId)
+                }
+            }
+        }
+    }
+    
+    private fun setupFinishedStrokesListener() {
+        inProgressStrokesView.addFinishedStrokesListener(object : InProgressStrokesFinishedListener {
+            override fun onStrokesFinished(event: InProgressStrokesView.FinishedStrokesEvent) {
+                // Handle the finalized strokes from AndroidX Ink
+                for (stroke in event.finishedStrokes) {
+                    finishedStrokes.add(stroke)
+                    addCommand(DrawingCommand.AddStroke(stroke))
+                }
+                
+                // Trigger refresh and notify listeners
+                invalidate()
+                onStrokeChangedListener?.invoke()
+            }
+        })
+    }
+    
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w > 0 && h > 0) {
-            canvasBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-            drawCanvas = Canvas(canvasBitmap!!)
+            // Create background bitmap
+            backgroundBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            backgroundCanvas = Canvas(backgroundBitmap!!)
             drawBackgroundToCanvas()
-            redrawAllStrokes()
         }
     }
-
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        
-        // Draw the cached bitmap
-        canvasBitmap?.let { bitmap ->
+    
+    override fun dispatchDraw(canvas: Canvas) {
+        // Draw background
+        backgroundBitmap?.let { bitmap ->
             canvas.drawBitmap(bitmap, 0f, 0f, null)
         }
-
-        // Draw current stroke if in progress
-        currentStroke?.let { stroke ->
-            configurePaintForTool(stroke.tool)
-            canvas.drawPath(stroke.path, paint)
+        
+        // Draw finished strokes using CanvasStrokeRenderer
+        for (stroke in finishedStrokes) {
+            strokeRenderer.draw(stroke, canvas, null)
         }
+        
+        // Let InProgressStrokesView draw in-progress strokes
+        super.dispatchDraw(canvas)
     }
     
     /**
      * Draw background pattern to canvas
      */
     private fun drawBackgroundToCanvas() {
-        drawCanvas?.let { canvas ->
+        backgroundCanvas?.let { canvas ->
             // Draw white background first
             canvas.drawColor(Color.WHITE)
             
@@ -184,160 +285,13 @@ class DrawingView @JvmOverloads constructor(
             y += lineSpacing
         }
     }
-
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        val x = event.x
-        val y = event.y
-        val pressure = event.pressure
-        val timestamp = System.currentTimeMillis()
-
-        when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-                startNewStroke(x, y, pressure, timestamp)
-                return true
-            }
-            MotionEvent.ACTION_MOVE -> {
-                continueStroke(x, y, pressure, timestamp)
-                return true
-            }
-            MotionEvent.ACTION_UP -> {
-                finishStroke()
-                return true
-            }
-        }
-        return false
-    }
-
-    private fun startNewStroke(x: Float, y: Float, pressure: Float, timestamp: Long) {
-        val adjustedPressure = pressure * currentTool.pressureSensitivity
-        
-        currentStroke = Stroke(Path(), currentTool.copy()).apply {
-            path.moveTo(x, y)
-            points.add(PointF(x, y))
-            pressures.add(adjustedPressure)
-            timestamps.add(timestamp)
-        }
-
-        // Start AndroidX Ink stroke
-        inProgressStroke = InProgressStroke.Builder().build()
-
-        invalidate()
-    }
-
-    private fun continueStroke(x: Float, y: Float, pressure: Float, timestamp: Long) {
-        currentStroke?.let { stroke ->
-            val adjustedPressure = pressure * currentTool.pressureSensitivity
-            
-            stroke.path.lineTo(x, y)
-            stroke.points.add(PointF(x, y))
-            stroke.pressures.add(adjustedPressure)
-            stroke.timestamps.add(timestamp)
-
-            // Add point to AndroidX Ink stroke
-            inProgressStroke?.enqueueInput(
-                StrokeInput(
-                    x = x,
-                    y = y,
-                    elapsedTimeMillis = timestamp
-                )
-            )
-
-            invalidate()
-        }
-    }
-
-    private fun finishStroke() {
-        currentStroke?.let { stroke ->
-            // Add to strokes list
-            strokes.add(stroke)
-            
-            // Draw to canvas bitmap
-            drawCanvas?.let { canvas ->
-                configurePaintForTool(stroke.tool)
-                canvas.drawPath(stroke.path, paint)
-            }
-
-            // Finish AndroidX Ink stroke
-            inProgressStroke?.let { inkStroke ->
-                try {
-                    val finishedStroke = inkStroke.finishStroke()
-                    inkStrokes.add(finishedStroke)
-                } catch (e: Exception) {
-                    // Handle error in finishing stroke
-                }
-            }
-
-            // Add to command history
-            addCommand(DrawingCommand.AddStroke(stroke))
-            currentStroke = null
-            inProgressStroke = null
-
-            onStrokeChangedListener?.invoke()
-            invalidate()
-        }
-    }
-
-    private fun configurePaintForTool(tool: Tool) {
-        paint.color = tool.color
-        paint.strokeWidth = tool.size
-        
-        when (tool.type) {
-            ToolType.PEN -> {
-                paint.alpha = 255
-                paint.pathEffect = null
-                paint.style = Paint.Style.STROKE
-            }
-            ToolType.PENCIL -> {
-                paint.alpha = 200
-                paint.pathEffect = null
-                paint.style = Paint.Style.STROKE
-            }
-            ToolType.MARKER -> {
-                paint.alpha = 150
-                paint.strokeWidth = tool.size * 2f // Markers are wider
-                paint.pathEffect = null
-                paint.style = Paint.Style.STROKE
-            }
-            ToolType.HIGHLIGHTER -> {
-                paint.alpha = 100  // More transparent than marker
-                paint.strokeWidth = tool.size * 3f // Highlighters are wider
-                paint.pathEffect = null
-                paint.style = Paint.Style.STROKE
-            }
-            ToolType.ERASER -> {
-                paint.color = Color.WHITE
-                paint.alpha = 255
-                paint.pathEffect = null
-                paint.style = Paint.Style.STROKE
-            }
-            ToolType.LASSO -> {
-                paint.color = Color.BLUE
-                paint.alpha = 128
-                paint.pathEffect = DashPathEffect(floatArrayOf(10f, 5f), 0f)
-                paint.style = Paint.Style.STROKE
-            }
-            ToolType.TEXT, ToolType.SHAPE -> {
-                // These don't draw strokes directly
-                paint.alpha = 255
-                paint.pathEffect = null
-                paint.style = Paint.Style.STROKE
-            }
-        }
-    }
-
-    private fun redrawAllStrokes() {
-        drawCanvas?.let { canvas ->
-            drawBackgroundToCanvas()
-            for (stroke in strokes) {
-                configurePaintForTool(stroke.tool)
-                canvas.drawPath(stroke.path, paint)
-            }
-        }
-    }
-
+    
     // Public API methods
     fun setCurrentTool(tool: Tool) {
-        currentTool = tool
+        // Update brush based on tool
+        currentColor = tool.color
+        currentSize = tool.size
+        currentBrush = createBrush(currentColor, currentSize)
     }
 
     fun setOnStrokeChangedListener(listener: () -> Unit) {
@@ -350,7 +304,6 @@ class DrawingView @JvmOverloads constructor(
     fun setBackgroundType(type: BackgroundType) {
         backgroundType = type
         drawBackgroundToCanvas()
-        redrawAllStrokes()
         invalidate()
     }
     
@@ -375,7 +328,19 @@ class DrawingView @JvmOverloads constructor(
      * Get the current canvas bitmap
      */
     fun getCanvasBitmap(): Bitmap? {
-        return canvasBitmap?.copy(Bitmap.Config.ARGB_8888, false)
+        // Create a bitmap with background and all strokes
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        
+        // Draw background
+        backgroundBitmap?.let { canvas.drawBitmap(it, 0f, 0f, null) }
+        
+        // Draw all finished strokes
+        for (stroke in finishedStrokes) {
+            strokeRenderer.draw(stroke, canvas, null)
+        }
+        
+        return bitmap
     }
     
     /**
@@ -396,9 +361,9 @@ class DrawingView @JvmOverloads constructor(
      * Insert text at position
      */
     fun insertText(text: String, x: Float, y: Float, textSize: Float = 40f) {
-        drawCanvas?.let { canvas ->
+        backgroundCanvas?.let { canvas ->
             val textPaint = Paint().apply {
-                color = currentTool.color
+                color = currentColor
                 this.textSize = textSize
                 isAntiAlias = true
             }
@@ -411,10 +376,10 @@ class DrawingView @JvmOverloads constructor(
      * Insert shape at position
      */
     fun insertShape(shapeType: ShapeType, startX: Float, startY: Float, endX: Float, endY: Float) {
-        drawCanvas?.let { canvas ->
+        backgroundCanvas?.let { canvas ->
             val shapePaint = Paint().apply {
-                color = currentTool.color
-                strokeWidth = currentTool.size
+                color = currentColor
+                strokeWidth = currentSize
                 style = Paint.Style.STROKE
                 isAntiAlias = true
             }
@@ -446,16 +411,15 @@ class DrawingView @JvmOverloads constructor(
             historyIndex--
             when (val command = commandHistory[historyIndex + 1]) {
                 is DrawingCommand.AddStroke -> {
-                    strokes.remove(command.stroke)
+                    finishedStrokes.remove(command.inkStroke)
                 }
                 is DrawingCommand.RemoveStroke -> {
-                    strokes.add(command.stroke)
+                    finishedStrokes.add(command.inkStroke)
                 }
                 is DrawingCommand.Clear -> {
-                    strokes.addAll(command.strokes)
+                    finishedStrokes.addAll(command.strokes)
                 }
             }
-            redrawAllStrokes()
             invalidate()
         }
     }
@@ -465,16 +429,15 @@ class DrawingView @JvmOverloads constructor(
             historyIndex++
             when (val command = commandHistory[historyIndex]) {
                 is DrawingCommand.AddStroke -> {
-                    strokes.add(command.stroke)
+                    finishedStrokes.add(command.inkStroke)
                 }
                 is DrawingCommand.RemoveStroke -> {
-                    strokes.remove(command.stroke)
+                    finishedStrokes.remove(command.inkStroke)
                 }
                 is DrawingCommand.Clear -> {
-                    strokes.clear()
+                    finishedStrokes.clear()
                 }
             }
-            redrawAllStrokes()
             invalidate()
         }
     }
@@ -484,12 +447,10 @@ class DrawingView @JvmOverloads constructor(
     fun canRedo(): Boolean = historyIndex < commandHistory.size - 1
 
     fun clearCanvas() {
-        val strokesCopy = strokes.toList()
-        strokes.clear()
+        val strokesCopy = finishedStrokes.toList()
+        finishedStrokes.clear()
         addCommand(DrawingCommand.Clear(strokesCopy))
-        
         drawBackgroundToCanvas()
-        inkStrokes.clear() // Clear AndroidX Ink strokes
         invalidate()
     }
 
@@ -528,7 +489,7 @@ class DrawingView @JvmOverloads constructor(
 
     // AI Features
     fun performTextRecognition() {
-        if (strokes.isEmpty()) {
+        if (finishedStrokes.isEmpty()) {
             Toast.makeText(context, "No strokes to recognize", Toast.LENGTH_SHORT).show()
             return
         }
@@ -544,7 +505,7 @@ class DrawingView @JvmOverloads constructor(
      * This is a placeholder - actual implementation requires ML Kit Digital Ink Recognition
      */
     fun convertStrokesToText(callback: (String) -> Unit) {
-        if (inkStrokes.isEmpty()) {
+        if (finishedStrokes.isEmpty()) {
             Toast.makeText(context, "No strokes to convert", Toast.LENGTH_SHORT).show()
             return
         }
@@ -568,6 +529,16 @@ class DrawingView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         // Clean up AndroidX Ink resources
-        inkStrokes.clear()
+        finishedStrokes.clear()
+        pointerToStrokeId.clear()
     }
+}
+
+/**
+ * Represents a drawing command that can be undone/redone
+ */
+sealed class DrawingCommand {
+    data class AddStroke(val inkStroke: InkStroke) : DrawingCommand()
+    data class RemoveStroke(val inkStroke: InkStroke) : DrawingCommand()
+    data class Clear(val strokes: List<InkStroke>) : DrawingCommand()
 }

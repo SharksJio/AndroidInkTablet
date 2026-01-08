@@ -4,7 +4,8 @@ import android.graphics.Path
 import android.graphics.PointF
 
 /**
- * Represents a stroke drawn on the canvas
+ * Legacy stroke representation
+ * This is kept for backward compatibility with existing Tool system
  */
 data class Stroke(
     val path: Path,
@@ -13,12 +14,3 @@ data class Stroke(
     val pressures: MutableList<Float> = mutableListOf(),
     val timestamps: MutableList<Long> = mutableListOf()
 )
-
-/**
- * Represents a drawing command that can be undone/redone
- */
-sealed class DrawingCommand {
-    data class AddStroke(val stroke: Stroke) : DrawingCommand()
-    data class RemoveStroke(val stroke: Stroke) : DrawingCommand()
-    data class Clear(val strokes: List<Stroke>) : DrawingCommand()
-}
