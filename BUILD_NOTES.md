@@ -17,15 +17,27 @@
 - **Fix**: Changed to explicit `maven { url 'https://maven.google.com' }` URL
 - **Note**: Changed `FAIL_ON_PROJECT_REPOS` to `PREFER_SETTINGS` for more flexibility
 
-### 4. Incorrect AndroidX Ink API Usage
-- **Problem**: The app was incorrectly using `InProgressStroke` directly from `androidx.ink.strokes` instead of using the proper AndroidX Ink authoring API
-- **Fix**:
-  - Added `androidx.ink:ink-authoring:1.0.0-beta01` dependency
-  - Updated `DrawingView` to properly integrate with `InProgressStrokesView`
-  - Implemented `InProgressStrokesFinishedListener` to receive finalized strokes
-  - Added `requestUnbufferedDispatch()` for lower latency ink rendering
-  - Properly handles multi-touch through pointer ID management
-  - Updated `MainActivity` to create and layer both `DrawingView` and `InProgressStrokesView`
+### 4. AndroidX Ink API Implementation - Complete Redesign
+- **Problem**: Initial implementation incorrectly layered `InProgressStrokesView` on top of a custom `DrawingView`, not following Android's recommended pattern
+- **Solution**: Complete redesign based on reference projects:
+  - https://github.com/SharksJio/cahier
+  - https://github.com/NicosNicolaou16/Ink_Api_Compose
+
+**New Architecture:**
+1. `DrawingView` now extends `FrameLayout` and contains `InProgressStrokesView` internally
+2. Uses `CanvasStrokeRenderer` for rendering finished strokes
+3. Touch handling via `setOnTouchListener` on `InProgressStrokesView`
+4. Proper `strokeId` management with pointer-to-strokeId mapping for multi-touch
+5. Implements `startStroke()`, `addToStroke()`, `finishStroke()`, `cancelStroke()` pattern
+6. Uses `Brush` objects from `androidx.ink.brush` (StockBrushes)
+7. Renders in `dispatchDraw()` to allow `InProgressStrokesView` to draw in-progress strokes
+8. `InProgressStrokesFinishedListener` receives completed strokes
+
+**Key Implementation Details:**
+- Touch events: `requestUnbufferedDispatch()` for lower latency
+- Rendering: `CanvasStrokeRenderer.draw()` for finished strokes
+- Multi-touch: Pointer ID to strokeId mapping
+- Command history: Uses `InkStroke` objects for undo/redo
 
 ## Build Instructions
 
@@ -71,4 +83,4 @@ The project uses:
 - compileSdk 34
 - minSdk 26
 - targetSdk 34
-- AndroidX Ink Library (beta01) with proper authoring API usage
+- AndroidX Ink Library (beta01) with proper authoring API usage following Google's recommended patterns

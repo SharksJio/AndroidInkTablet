@@ -13,7 +13,6 @@ import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import androidx.ink.strokes.Stroke as InkStroke
 import androidx.ink.brush.Brush
 import androidx.ink.brush.StockBrushes
-import androidx.ink.brush.BrushFamily
 import androidx.ink.brush.BrushPaint
 import com.sharks.androidinktablet.model.BackgroundType
 import com.sharks.androidinktablet.model.EraserMode
