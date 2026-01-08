@@ -105,10 +105,17 @@ class DrawingView @JvmOverloads constructor(
         // Setup listener to get finalized strokes
         view.addFinishedStrokesListener(object : InProgressStrokesFinishedListener {
             override fun onStrokesFinished(event: InProgressStrokesView.FinishedStrokesEvent) {
-                // Handle the finalized strokes
-                for (stroke in event.finishedStrokes) {
-                    inkStrokes.add(stroke)
+                // Handle the finalized strokes from AndroidX Ink
+                for (inkStroke in event.finishedStrokes) {
+                    // Store the AndroidX Ink stroke
+                    inkStrokes.add(inkStroke)
+                    
+                    // TODO: Convert AndroidX Ink stroke to our custom Stroke format and integrate with undo/redo
+                    // For now, just trigger a refresh
                 }
+                
+                // Trigger invalidation to display the new strokes
+                invalidate()
                 onStrokeChangedListener?.invoke()
             }
         })
