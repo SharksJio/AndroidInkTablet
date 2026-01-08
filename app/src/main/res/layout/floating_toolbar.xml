@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/floatingToolbar"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:elevation="8dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="8dp"
+    app:cardBackgroundColor="@color/toolbar_background">
+
+    <LinearLayout
+        android:id="@+id/toolbarContent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center_vertical">
+
+        <!-- Expand/Minimize Button -->
+        <ImageButton
+            android:id="@+id/btnToggleToolbar"
+            style="@style/ToolButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_minimize"
+            android:contentDescription="@string/toggle_toolbar"
+            android:layout_margin="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <View
+            android:id="@+id/toolbarDivider1"
+            android:layout_width="1dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="#40000000" />
+
+        <!-- Undo Button -->
+        <ImageButton
+            android:id="@+id/btnUndoToolbar"
+            style="@style/ToolButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_undo"
+            android:contentDescription="@string/menu_undo"
+            android:layout_margin="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <!-- Redo Button -->
+        <ImageButton
+            android:id="@+id/btnRedoToolbar"
+            style="@style/ToolButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_redo"
+            android:contentDescription="@string/menu_redo"
+            android:layout_margin="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <View
+            android:id="@+id/toolbarDivider2"
+            android:layout_width="1dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="#40000000" />
+
+        <!-- Lasso Selection -->
+        <ImageButton
+            android:id="@+id/btnLassoToolbar"
+            style="@style/ToolButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_lasso"
+            android:contentDescription="@string/tool_lasso"
+            android:layout_margin="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <View
+            android:id="@+id/toolbarDivider3"
+            android:layout_width="1dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="#40000000" />
+
+        <!-- Eraser -->
+        <ImageButton
+            android:id="@+id/btnEraserToolbar"
+            style="@style/ToolButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_eraser"
+            android:contentDescription="@string/tool_eraser"
+            android:layout_margin="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <View
+            android:id="@+id/toolbarDivider4"
+            android:layout_width="1dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="#40000000" />
+
+        <!-- Highlighter -->
+        <ImageButton
+            android:id="@+id/btnHighlighterToolbar"
+            style="@style/ToolButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_highlighter"
+            android:contentDescription="@string/tool_highlighter"
+            android:layout_margin="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <View
+            android:id="@+id/toolbarDivider5"
+            android:layout_width="1dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="#40000000" />
+
+        <!-- Pen -->
+        <ImageButton
+            android:id="@+id/btnPenToolbar"
+            style="@style/ToolButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_pen"
+            android:contentDescription="@string/tool_pen"
+            android:layout_margin="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <View
+            android:id="@+id/toolbarDivider6"
+            android:layout_width="1dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="#40000000" />
+
+        <!-- Text Tool -->
+        <ImageButton
+            android:id="@+id/btnTextToolbar"
+            style="@style/ToolButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_text"
+            android:contentDescription="@string/tool_text"
+            android:layout_margin="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <!-- Shape Tool -->
+        <ImageButton
+            android:id="@+id/btnShapeToolbar"
+            style="@style/ToolButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_circle"
+            android:contentDescription="@string/tool_shape"
+            android:layout_margin="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <View
+            android:id="@+id/toolbarDivider7"
+            android:layout_width="1dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="#40000000" />
+
+        <!-- Color Grid (8-10 colors inline) -->
+        <LinearLayout
+            android:id="@+id/colorGrid"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Color buttons will be added programmatically -->
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

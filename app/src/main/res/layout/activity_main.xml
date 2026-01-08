@@ -188,8 +188,19 @@
         </LinearLayout>
 
     </com.google.android.material.card.MaterialCardView>
+    
+    <!-- Floating Toolbar (Draggable) -->
+    <com.sharks.androidinktablet.ui.DraggableToolbarContainer
+        android:id="@+id/draggableToolbarContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center">
+        
+        <include layout="@layout/floating_toolbar" />
+        
+    </com.sharks.androidinktablet.ui.DraggableToolbarContainer>
 
-    <!-- Floating Action Buttons -->
+    <!-- Floating Action Buttons (Hidden - replaced by floating toolbar) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabUndo"
         android:layout_width="wrap_content"
@@ -198,6 +209,7 @@
         android:layout_margin="16dp"
         android:src="@drawable/ic_undo"
         android:contentDescription="@string/menu_undo"
+        android:visibility="gone"
         app:tint="@color/on_primary"
         app:backgroundTint="@color/primary" />
 
@@ -210,6 +222,7 @@
         android:layout_marginBottom="80dp"
         android:src="@drawable/ic_redo"
         android:contentDescription="@string/menu_redo"
+        android:visibility="gone"
         app:tint="@color/on_primary"
         app:backgroundTint="@color/primary" />
 

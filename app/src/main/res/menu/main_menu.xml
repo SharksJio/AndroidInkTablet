@@ -2,22 +2,66 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <!-- Left side icons -->
+    <item
+        android:id="@+id/action_open"
+        android:icon="@drawable/ic_folder"
+        android:title="@string/menu_open"
+        app:showAsAction="always" />
+
     <item
         android:id="@+id/action_new"
         android:icon="@drawable/ic_new"
         android:title="@string/menu_new"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
 
     <item
         android:id="@+id/action_save"
         android:icon="@drawable/ic_save"
         android:title="@string/menu_save"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
+
+    <!-- Right side overflow menu -->
+    <item
+        android:id="@+id/action_export"
+        android:title="Export"
+        app:showAsAction="never">
+        <menu>
+            <item
+                android:id="@+id/action_export_png"
+                android:title="@string/menu_export_png" />
+            <item
+                android:id="@+id/action_export_jpeg"
+                android:title="@string/menu_export_jpeg" />
+            <item
+                android:id="@+id/action_export_pdf"
+                android:title="@string/menu_export_pdf" />
+        </menu>
+    </item>
 
     <item
-        android:id="@+id/action_load"
-        android:icon="@drawable/ic_load"
-        android:title="@string/menu_load"
+        android:id="@+id/action_background"
+        android:title="@string/menu_background"
+        app:showAsAction="never">
+        <menu>
+            <item
+                android:id="@+id/bg_plain"
+                android:title="@string/bg_plain" />
+            <item
+                android:id="@+id/bg_grid"
+                android:title="@string/bg_grid" />
+            <item
+                android:id="@+id/bg_dots"
+                android:title="@string/bg_dots" />
+            <item
+                android:id="@+id/bg_lines"
+                android:title="@string/bg_lines" />
+        </menu>
+    </item>
+
+    <item
+        android:id="@+id/action_convert_text"
+        android:title="@string/menu_convert_text"
         app:showAsAction="never" />
 
     <item
@@ -27,21 +71,9 @@
         app:showAsAction="never" />
 
     <item
-        android:id="@+id/action_ai_text"
-        android:icon="@drawable/ic_text_recognition"
-        android:title="@string/ai_text_recognition"
-        app:showAsAction="never" />
-
-    <item
-        android:id="@+id/action_ai_shape"
-        android:icon="@drawable/ic_shape_detection"
-        android:title="@string/ai_shape_detection"
-        app:showAsAction="never" />
-
-    <item
-        android:id="@+id/action_settings"
-        android:icon="@drawable/ic_settings"
-        android:title="@string/menu_settings"
-        app:showAsAction="never" />
+        android:id="@+id/action_close"
+        android:icon="@drawable/ic_close"
+        android:title="@string/button_cancel"
+        app:showAsAction="always" />
 
 </menu>
