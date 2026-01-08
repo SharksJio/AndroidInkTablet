@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF"/>
+        </shape>
+    </item>
+    <!-- Dot pattern -->
+    <item>
+        <bitmap
+            android:src="@drawable/dots_pattern"
+            android:tileMode="repeat" />
+    </item>
+</layer-list>

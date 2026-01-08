@@ -5,9 +5,12 @@
     <string name="tool_pen">Pen</string>
     <string name="tool_pencil">Pencil</string>
     <string name="tool_marker">Marker</string>
+    <string name="tool_highlighter">Highlighter</string>
     <string name="tool_eraser">Eraser</string>
     <string name="tool_lasso">Lasso Select</string>
     <string name="tool_image">Insert Image</string>
+    <string name="tool_text">Insert Text</string>
+    <string name="tool_shape">Create Shape</string>
     
     <!-- Menu Items -->
     <string name="menu_new">New Page</string>
@@ -17,6 +20,12 @@
     <string name="menu_redo">Redo</string>
     <string name="menu_clear">Clear Page</string>
     <string name="menu_settings">Settings</string>
+    <string name="menu_open">Open Files</string>
+    <string name="menu_export_png">Export as PNG</string>
+    <string name="menu_export_jpeg">Export as JPEG</string>
+    <string name="menu_export_pdf">Export as PDF</string>
+    <string name="menu_background">Change Background</string>
+    <string name="menu_convert_text">Convert to Text</string>
     
     <!-- Tool Settings -->
     <string name="brush_size">Brush Size</string>
@@ -44,4 +53,35 @@
     <string name="content_description_toolbar">Drawing tools toolbar</string>
     <string name="content_description_color_picker">Color selection</string>
     <string name="content_description_size_slider">Brush size adjustment</string>
+    
+    <!-- Toolbar -->
+    <string name="toggle_toolbar">Toggle toolbar size</string>
+    
+    <!-- Background Types -->
+    <string name="bg_plain">Plain</string>
+    <string name="bg_grid">Grid</string>
+    <string name="bg_dots">Dots</string>
+    <string name="bg_lines">Lines</string>
+    
+    <!-- Eraser Modes -->
+    <string name="eraser_stroke">Stroke Eraser</string>
+    <string name="eraser_part">Part Eraser</string>
+    
+    <!-- Shape Types -->
+    <string name="shape_circle">Circle</string>
+    <string name="shape_rectangle">Rectangle</string>
+    <string name="shape_triangle">Triangle</string>
+    
+    <!-- Pen Sizes -->
+    <string name="pen_size_small">Small</string>
+    <string name="pen_size_medium">Medium</string>
+    <string name="pen_size_large">Large</string>
+    
+    <!-- Dialogs -->
+    <string name="dialog_text_input_title">Insert Text</string>
+    <string name="dialog_text_input_hint">Enter text</string>
+    <string name="dialog_shape_picker_title">Select Shape</string>
+    <string name="dialog_pen_size_title">Select Pen Size</string>
+    <string name="dialog_eraser_mode_title">Select Eraser Mode</string>
+    <string name="dialog_background_title">Select Background</string>
 </resources>

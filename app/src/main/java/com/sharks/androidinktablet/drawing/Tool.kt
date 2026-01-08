@@ -7,8 +7,11 @@ enum class ToolType {
     PEN,
     PENCIL,
     MARKER,
+    HIGHLIGHTER,
     ERASER,
-    LASSO
+    LASSO,
+    TEXT,
+    SHAPE
 }
 
 /**

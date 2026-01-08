@@ -80,6 +80,15 @@ dependencies {
     // For color picker
     implementation 'com.github.skydoves:colorpicker-compose:1.0.7'
     
+    // Google ML Kit for Text Recognition
+    implementation 'com.google.mlkit:digital-ink-recognition:18.1.0'
+    
+    // PDF generation
+    implementation 'com.itextpdf:itext7-core:7.2.5'
+    
+    // Coroutines for async operations
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    
     // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
