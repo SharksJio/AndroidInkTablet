@@ -12,9 +12,14 @@ import androidx.ink.strokes.InProgressStroke
 import androidx.ink.strokes.Stroke as InkStroke
 import androidx.ink.geometry.MutableVec
 import androidx.ink.strokes.StrokeInput
+import com.sharks.androidinktablet.R
+import com.sharks.androidinktablet.model.BackgroundType
+import com.sharks.androidinktablet.model.EraserMode
+import com.sharks.androidinktablet.model.ShapeType
 import java.util.*
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 /**
  * Custom view for handling drawing with AndroidX Ink Library support
@@ -44,6 +49,8 @@ class DrawingView @JvmOverloads constructor(
     private var inProgressStroke: InProgressStroke? = null
     private val inkStrokes = mutableListOf<InkStroke>()
 
+    // Background
+    private var backgroundType = BackgroundType.PLAIN
     private val backgroundPaint = Paint().apply {
         color = Color.WHITE
     }
@@ -51,13 +58,20 @@ class DrawingView @JvmOverloads constructor(
     // Canvas bitmap for performance
     private var canvasBitmap: Bitmap? = null
     private var drawCanvas: Canvas? = null
+    
+    // Eraser mode
+    private var eraserMode = EraserMode.PART
+    
+    // Text and shape support
+    private var onTextInsertListener: ((Float, Float) -> Unit)? = null
+    private var onShapeInsertListener: ((ShapeType, Float, Float, Float, Float) -> Unit)? = null
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w > 0 && h > 0) {
             canvasBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             drawCanvas = Canvas(canvasBitmap!!)
-            drawCanvas?.drawColor(Color.WHITE)
+            drawBackgroundToCanvas()
             redrawAllStrokes()
         }
     }
@@ -74,6 +88,99 @@ class DrawingView @JvmOverloads constructor(
         currentStroke?.let { stroke ->
             configurePaintForTool(stroke.tool)
             canvas.drawPath(stroke.path, paint)
+        }
+    }
+    
+    /**
+     * Draw background pattern to canvas
+     */
+    private fun drawBackgroundToCanvas() {
+        drawCanvas?.let { canvas ->
+            // Draw white background first
+            canvas.drawColor(Color.WHITE)
+            
+            // Draw pattern based on background type
+            when (backgroundType) {
+                BackgroundType.PLAIN -> {
+                    // Already white, nothing more to do
+                }
+                BackgroundType.GRID -> {
+                    drawGridPattern(canvas)
+                }
+                BackgroundType.DOTS -> {
+                    drawDotsPattern(canvas)
+                }
+                BackgroundType.LINES -> {
+                    drawLinesPattern(canvas)
+                }
+            }
+        }
+    }
+    
+    private fun drawGridPattern(canvas: Canvas) {
+        val gridPaint = Paint().apply {
+            color = Color.parseColor("#E0E0E0")
+            strokeWidth = 1f
+            style = Paint.Style.STROKE
+        }
+        
+        val gridSize = 40f
+        val width = canvas.width.toFloat()
+        val height = canvas.height.toFloat()
+        
+        // Draw vertical lines
+        var x = gridSize
+        while (x < width) {
+            canvas.drawLine(x, 0f, x, height, gridPaint)
+            x += gridSize
+        }
+        
+        // Draw horizontal lines
+        var y = gridSize
+        while (y < height) {
+            canvas.drawLine(0f, y, width, y, gridPaint)
+            y += gridSize
+        }
+    }
+    
+    private fun drawDotsPattern(canvas: Canvas) {
+        val dotPaint = Paint().apply {
+            color = Color.parseColor("#E0E0E0")
+            style = Paint.Style.FILL
+        }
+        
+        val dotSpacing = 20f
+        val dotRadius = 1.5f
+        val width = canvas.width.toFloat()
+        val height = canvas.height.toFloat()
+        
+        var y = dotSpacing
+        while (y < height) {
+            var x = dotSpacing
+            while (x < width) {
+                canvas.drawCircle(x, y, dotRadius, dotPaint)
+                x += dotSpacing
+            }
+            y += dotSpacing
+        }
+    }
+    
+    private fun drawLinesPattern(canvas: Canvas) {
+        val linePaint = Paint().apply {
+            color = Color.parseColor("#E0E0E0")
+            strokeWidth = 1f
+            style = Paint.Style.STROKE
+        }
+        
+        val lineSpacing = 40f
+        val width = canvas.width.toFloat()
+        val height = canvas.height.toFloat()
+        
+        // Draw horizontal lines only
+        var y = lineSpacing
+        while (y < height) {
+            canvas.drawLine(0f, y, width, y, linePaint)
+            y += lineSpacing
         }
     }
 
@@ -177,32 +284,49 @@ class DrawingView @JvmOverloads constructor(
             ToolType.PEN -> {
                 paint.alpha = 255
                 paint.pathEffect = null
+                paint.style = Paint.Style.STROKE
             }
             ToolType.PENCIL -> {
                 paint.alpha = 200
                 paint.pathEffect = null
+                paint.style = Paint.Style.STROKE
             }
             ToolType.MARKER -> {
                 paint.alpha = 150
                 paint.strokeWidth = tool.size * 2f // Markers are wider
                 paint.pathEffect = null
+                paint.style = Paint.Style.STROKE
+            }
+            ToolType.HIGHLIGHTER -> {
+                paint.alpha = 100  // More transparent than marker
+                paint.strokeWidth = tool.size * 3f // Highlighters are wider
+                paint.pathEffect = null
+                paint.style = Paint.Style.STROKE
             }
             ToolType.ERASER -> {
                 paint.color = Color.WHITE
                 paint.alpha = 255
                 paint.pathEffect = null
+                paint.style = Paint.Style.STROKE
             }
             ToolType.LASSO -> {
                 paint.color = Color.BLUE
                 paint.alpha = 128
                 paint.pathEffect = DashPathEffect(floatArrayOf(10f, 5f), 0f)
+                paint.style = Paint.Style.STROKE
+            }
+            ToolType.TEXT, ToolType.SHAPE -> {
+                // These don't draw strokes directly
+                paint.alpha = 255
+                paint.pathEffect = null
+                paint.style = Paint.Style.STROKE
             }
         }
     }
 
     private fun redrawAllStrokes() {
         drawCanvas?.let { canvas ->
-            canvas.drawColor(Color.WHITE)
+            drawBackgroundToCanvas()
             for (stroke in strokes) {
                 configurePaintForTool(stroke.tool)
                 canvas.drawPath(stroke.path, paint)
@@ -217,6 +341,103 @@ class DrawingView @JvmOverloads constructor(
 
     fun setOnStrokeChangedListener(listener: () -> Unit) {
         onStrokeChangedListener = listener
+    }
+    
+    /**
+     * Set background type
+     */
+    fun setBackgroundType(type: BackgroundType) {
+        backgroundType = type
+        drawBackgroundToCanvas()
+        redrawAllStrokes()
+        invalidate()
+    }
+    
+    /**
+     * Get current background type
+     */
+    fun getBackgroundType(): BackgroundType = backgroundType
+    
+    /**
+     * Set eraser mode
+     */
+    fun setEraserMode(mode: EraserMode) {
+        eraserMode = mode
+    }
+    
+    /**
+     * Get current eraser mode
+     */
+    fun getEraserMode(): EraserMode = eraserMode
+    
+    /**
+     * Get the current canvas bitmap
+     */
+    fun getCanvasBitmap(): Bitmap? {
+        return canvasBitmap?.copy(Bitmap.Config.ARGB_8888, false)
+    }
+    
+    /**
+     * Set listener for text insertion
+     */
+    fun setOnTextInsertListener(listener: (Float, Float) -> Unit) {
+        onTextInsertListener = listener
+    }
+    
+    /**
+     * Set listener for shape insertion
+     */
+    fun setOnShapeInsertListener(listener: (ShapeType, Float, Float, Float, Float) -> Unit) {
+        onShapeInsertListener = listener
+    }
+    
+    /**
+     * Insert text at position
+     */
+    fun insertText(text: String, x: Float, y: Float, textSize: Float = 40f) {
+        drawCanvas?.let { canvas ->
+            val textPaint = Paint().apply {
+                color = currentTool.color
+                this.textSize = textSize
+                isAntiAlias = true
+            }
+            canvas.drawText(text, x, y, textPaint)
+            invalidate()
+        }
+    }
+    
+    /**
+     * Insert shape at position
+     */
+    fun insertShape(shapeType: ShapeType, startX: Float, startY: Float, endX: Float, endY: Float) {
+        drawCanvas?.let { canvas ->
+            val shapePaint = Paint().apply {
+                color = currentTool.color
+                strokeWidth = currentTool.size
+                style = Paint.Style.STROKE
+                isAntiAlias = true
+            }
+            
+            when (shapeType) {
+                ShapeType.CIRCLE -> {
+                    val radius = sqrt((endX - startX) * (endX - startX) + (endY - startY) * (endY - startY))
+                    canvas.drawCircle(startX, startY, radius, shapePaint)
+                }
+                ShapeType.RECTANGLE -> {
+                    canvas.drawRect(startX, startY, endX, endY, shapePaint)
+                }
+                ShapeType.TRIANGLE -> {
+                    val path = Path().apply {
+                        moveTo(startX, endY)  // Bottom left
+                        lineTo((startX + endX) / 2, startY)  // Top middle
+                        lineTo(endX, endY)  // Bottom right
+                        close()
+                    }
+                    canvas.drawPath(path, shapePaint)
+                }
+            }
+            invalidate()
+        }
     }
 
     fun undo() {
@@ -266,7 +487,7 @@ class DrawingView @JvmOverloads constructor(
         strokes.clear()
         addCommand(DrawingCommand.Clear(strokesCopy))
         
-        drawCanvas?.drawColor(Color.WHITE)
+        drawBackgroundToCanvas()
         inkStrokes.clear() // Clear AndroidX Ink strokes
         invalidate()
     }
@@ -311,9 +532,31 @@ class DrawingView @JvmOverloads constructor(
             return
         }
 
-        // AndroidX Ink Library doesn't include text recognition out of the box
-        // Text recognition would require integration with a separate ML model
-        Toast.makeText(context, "Text recognition requires ML model integration", Toast.LENGTH_SHORT).show()
+        // For text recognition, we would need to integrate Google ML Kit Digital Ink Recognition
+        // This requires training data download and model setup
+        // For now, we show a placeholder message
+        Toast.makeText(context, "Text recognition feature requires ML Kit Digital Ink Recognition setup", Toast.LENGTH_SHORT).show()
+    }
+    
+    /**
+     * Convert all strokes to text using ML Kit
+     * This is a placeholder - actual implementation requires ML Kit Digital Ink Recognition
+     */
+    fun convertStrokesToText(callback: (String) -> Unit) {
+        if (inkStrokes.isEmpty()) {
+            Toast.makeText(context, "No strokes to convert", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Placeholder for ML Kit integration
+        // In production, this would:
+        // 1. Create a digital ink model
+        // 2. Add all ink strokes to it
+        // 3. Use ML Kit to recognize text
+        // 4. Call the callback with recognized text
+        
+        Toast.makeText(context, "Text conversion requires ML Kit Digital Ink Recognition model", Toast.LENGTH_LONG).show()
+        callback("Recognized text would appear here")
     }
 
     fun performShapeDetection() {
