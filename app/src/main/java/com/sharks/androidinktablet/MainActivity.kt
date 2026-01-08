@@ -10,25 +10,36 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.sharks.androidinktablet.drawing.DrawingView
 import com.sharks.androidinktablet.drawing.Tool
 import com.sharks.androidinktablet.drawing.ToolType
+import com.sharks.androidinktablet.model.BackgroundType
+import com.sharks.androidinktablet.model.EraserMode
+import com.sharks.androidinktablet.model.ShapeType
+import com.sharks.androidinktablet.repository.FileRepository
 import com.sharks.androidinktablet.ui.ColorPickerDialog
+import com.sharks.androidinktablet.viewmodel.DrawingViewModel
+import kotlinx.coroutines.launch
 
 /**
  * Main activity for the Android Ink Tablet application.
- * Handles the main drawing interface and tool interactions.
+ * Handles the main drawing interface and tool interactions with MVVM architecture.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -38,7 +49,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sizeSlider: Slider
     private lateinit var pressureSlider: Slider
     
-    // Tool buttons
+    // Bottom toolbar buttons (optional - can be hidden)
     private lateinit var btnPen: ImageButton
     private lateinit var btnPencil: ImageButton
     private lateinit var btnMarker: ImageButton
@@ -47,14 +58,40 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnImage: ImageButton
     private lateinit var btnColorPicker: ImageButton
     
-    // FABs
-    private lateinit var fabUndo: FloatingActionButton
-    private lateinit var fabRedo: FloatingActionButton
+    // Floating toolbar
+    private lateinit var floatingToolbar: MaterialCardView
+    private lateinit var btnToggleToolbar: ImageButton
+    private lateinit var btnUndoToolbar: ImageButton
+    private lateinit var btnRedoToolbar: ImageButton
+    private lateinit var btnLassoToolbar: ImageButton
+    private lateinit var btnEraserToolbar: ImageButton
+    private lateinit var btnHighlighterToolbar: ImageButton
+    private lateinit var btnPenToolbar: ImageButton
+    private lateinit var btnTextToolbar: ImageButton
+    private lateinit var btnShapeToolbar: ImageButton
+    private lateinit var colorGrid: LinearLayout
+    private lateinit var toolbarContent: LinearLayout
     
-    private var currentTool = ToolType.PEN
+    // ViewModel
+    private val viewModel: DrawingViewModel by viewModels()
+    
+    // Repository
+    private lateinit var fileRepository: FileRepository
+    
     private var currentColor = Color.BLACK
-    private var currentSize = 5f
-    private var pressureSensitivity = 1.0f
+    private var isToolbarMinimized = false
+    
+    // Color palette
+    private val colorPalette = arrayOf(
+        Color.BLACK,
+        Color.parseColor("#1976D2"), // Blue
+        Color.parseColor("#F44336"), // Red
+        Color.parseColor("#4CAF50"), // Green
+        Color.parseColor("#9C27B0"), // Purple
+        Color.parseColor("#FF9800"), // Orange
+        Color.parseColor("#795548"), // Brown
+        Color.parseColor("#607D8B")  // Blue Gray
+    )
 
     private val imagePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -87,15 +124,18 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        fileRepository = FileRepository(this)
+        
         initializeViews()
         setupDrawingView()
         setupToolbar()
-        setupToolButtons()
-        setupFloatingActionButtons()
+        setupBottomToolbarButtons()
+        setupFloatingToolbar()
         setupSettingsPanel()
+        observeViewModel()
         
         // Set initial tool
-        selectTool(ToolType.PEN)
+        viewModel.setCurrentTool(ToolType.PEN)
     }
 
     private fun initializeViews() {
@@ -104,6 +144,7 @@ class MainActivity : AppCompatActivity() {
         sizeSlider = findViewById(R.id.sizeSlider)
         pressureSlider = findViewById(R.id.pressureSlider)
         
+        // Bottom toolbar buttons
         btnPen = findViewById(R.id.btnPen)
         btnPencil = findViewById(R.id.btnPencil)
         btnMarker = findViewById(R.id.btnMarker)
@@ -112,14 +153,25 @@ class MainActivity : AppCompatActivity() {
         btnImage = findViewById(R.id.btnImage)
         btnColorPicker = findViewById(R.id.btnColorPicker)
         
-        fabUndo = findViewById(R.id.fabUndo)
-        fabRedo = findViewById(R.id.fabRedo)
+        // Floating toolbar
+        floatingToolbar = findViewById(R.id.floatingToolbar)
+        toolbarContent = findViewById(R.id.toolbarContent)
+        btnToggleToolbar = findViewById(R.id.btnToggleToolbar)
+        btnUndoToolbar = findViewById(R.id.btnUndoToolbar)
+        btnRedoToolbar = findViewById(R.id.btnRedoToolbar)
+        btnLassoToolbar = findViewById(R.id.btnLassoToolbar)
+        btnEraserToolbar = findViewById(R.id.btnEraserToolbar)
+        btnHighlighterToolbar = findViewById(R.id.btnHighlighterToolbar)
+        btnPenToolbar = findViewById(R.id.btnPenToolbar)
+        btnTextToolbar = findViewById(R.id.btnTextToolbar)
+        btnShapeToolbar = findViewById(R.id.btnShapeToolbar)
+        colorGrid = findViewById(R.id.colorGrid)
     }
 
     private fun setupDrawingView() {
         drawingView = DrawingView(this)
         drawingView.setOnStrokeChangedListener {
-            updateUndoRedoButtons()
+            viewModel.updateUndoRedoState(drawingView.canUndo(), drawingView.canRedo())
         }
         
         val canvasContainer = findViewById<android.widget.FrameLayout>(R.id.canvasContainer)
@@ -134,90 +186,270 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupToolButtons() {
-        btnPen.setOnClickListener { selectTool(ToolType.PEN) }
-        btnPencil.setOnClickListener { selectTool(ToolType.PENCIL) }
-        btnMarker.setOnClickListener { selectTool(ToolType.MARKER) }
-        btnEraser.setOnClickListener { selectTool(ToolType.ERASER) }
-        btnLasso.setOnClickListener { selectTool(ToolType.LASSO) }
+    private fun setupBottomToolbarButtons() {
+        btnPen.setOnClickListener { viewModel.setCurrentTool(ToolType.PEN) }
+        btnPencil.setOnClickListener { viewModel.setCurrentTool(ToolType.PENCIL) }
+        btnMarker.setOnClickListener { viewModel.setCurrentTool(ToolType.MARKER) }
+        btnEraser.setOnClickListener { viewModel.setCurrentTool(ToolType.ERASER) }
+        btnLasso.setOnClickListener { viewModel.setCurrentTool(ToolType.LASSO) }
         btnImage.setOnClickListener { handleImageInsertion() }
         btnColorPicker.setOnClickListener { showColorPicker() }
     }
-
-    private fun setupFloatingActionButtons() {
-        fabUndo.setOnClickListener { 
+    
+    private fun setupFloatingToolbar() {
+        // Toggle button
+        btnToggleToolbar.setOnClickListener {
+            toggleToolbarSize()
+        }
+        
+        // Undo/Redo
+        btnUndoToolbar.setOnClickListener { 
             drawingView.undo()
-            updateUndoRedoButtons()
+            viewModel.updateUndoRedoState(drawingView.canUndo(), drawingView.canRedo())
         }
         
-        fabRedo.setOnClickListener { 
+        btnRedoToolbar.setOnClickListener { 
             drawingView.redo()
-            updateUndoRedoButtons()
+            viewModel.updateUndoRedoState(drawingView.canUndo(), drawingView.canRedo())
         }
         
-        updateUndoRedoButtons()
+        // Tool buttons
+        btnLassoToolbar.setOnClickListener { viewModel.setCurrentTool(ToolType.LASSO) }
+        
+        btnEraserToolbar.setOnClickListener { viewModel.setCurrentTool(ToolType.ERASER) }
+        btnEraserToolbar.setOnLongClickListener {
+            showEraserModeDialog()
+            true
+        }
+        
+        btnHighlighterToolbar.setOnClickListener { viewModel.setCurrentTool(ToolType.HIGHLIGHTER) }
+        
+        btnPenToolbar.setOnClickListener { viewModel.setCurrentTool(ToolType.PEN) }
+        btnPenToolbar.setOnLongClickListener {
+            showPenSizeDialog()
+            true
+        }
+        
+        btnTextToolbar.setOnClickListener { viewModel.setCurrentTool(ToolType.TEXT) }
+        btnShapeToolbar.setOnClickListener { viewModel.setCurrentTool(ToolType.SHAPE) }
+        
+        // Setup color buttons
+        setupColorButtons()
+    }
+    
+    private fun setupColorButtons() {
+        colorGrid.removeAllViews()
+        
+        colorPalette.forEach { color ->
+            val colorButton = ImageButton(this).apply {
+                layoutParams = LinearLayout.LayoutParams(48, 48).apply {
+                    setMargins(4, 4, 4, 4)
+                }
+                setBackgroundColor(color)
+                setOnClickListener {
+                    viewModel.setColor(color)
+                }
+            }
+            colorGrid.addView(colorButton)
+        }
+    }
+    
+    private fun toggleToolbarSize() {
+        isToolbarMinimized = !isToolbarMinimized
+        
+        if (isToolbarMinimized) {
+            // Hide all tools except toggle button
+            for (i in 1 until toolbarContent.childCount) {
+                toolbarContent.getChildAt(i).visibility = View.GONE
+            }
+            btnToggleToolbar.setImageResource(R.drawable.ic_expand)
+        } else {
+            // Show all tools
+            for (i in 1 until toolbarContent.childCount) {
+                toolbarContent.getChildAt(i).visibility = View.VISIBLE
+            }
+            btnToggleToolbar.setImageResource(R.drawable.ic_minimize)
+        }
     }
 
     private fun setupSettingsPanel() {
         sizeSlider.addOnChangeListener { _, value, _ ->
-            currentSize = value
-            updateCurrentTool()
+            viewModel.setBrushSize(value)
         }
         
         pressureSlider.addOnChangeListener { _, value, _ ->
-            pressureSensitivity = value
-            updateCurrentTool()
+            viewModel.setPressureSensitivity(value)
         }
     }
-
-    private fun selectTool(toolType: ToolType) {
-        currentTool = toolType
-        
-        // Update button states
-        resetToolButtonStates()
-        when (toolType) {
-            ToolType.PEN -> btnPen.isSelected = true
-            ToolType.PENCIL -> btnPencil.isSelected = true
-            ToolType.MARKER -> btnMarker.isSelected = true
-            ToolType.ERASER -> btnEraser.isSelected = true
-            ToolType.LASSO -> btnLasso.isSelected = true
+    
+    private fun observeViewModel() {
+        viewModel.currentTool.observe(this) { tool ->
+            drawingView.setCurrentTool(tool)
+            updateToolButtonStates(tool.type)
         }
         
-        updateCurrentTool()
+        viewModel.currentColor.observe(this) { color ->
+            currentColor = color
+            btnColorPicker.setColorFilter(color)
+        }
         
-        // Show/hide settings panel for drawing tools
-        val shouldShowSettings = toolType in listOf(ToolType.PEN, ToolType.PENCIL, ToolType.MARKER)
-        settingsPanel.visibility = if (shouldShowSettings) View.VISIBLE else View.GONE
+        viewModel.backgroundType.observe(this) { backgroundType ->
+            drawingView.setBackgroundType(backgroundType)
+        }
+        
+        viewModel.canUndo.observe(this) { canUndo ->
+            btnUndoToolbar.isEnabled = canUndo
+            btnUndoToolbar.alpha = if (canUndo) 1.0f else 0.5f
+        }
+        
+        viewModel.canRedo.observe(this) { canRedo ->
+            btnRedoToolbar.isEnabled = canRedo
+            btnRedoToolbar.alpha = if (canRedo) 1.0f else 0.5f
+        }
     }
-
-    private fun resetToolButtonStates() {
+    
+    private fun updateToolButtonStates(toolType: ToolType) {
+        // Reset all button states
         btnPen.isSelected = false
         btnPencil.isSelected = false
         btnMarker.isSelected = false
         btnEraser.isSelected = false
         btnLasso.isSelected = false
-    }
-
-    private fun updateCurrentTool() {
-        val tool = Tool(
-            type = currentTool,
-            color = if (currentTool == ToolType.ERASER) Color.TRANSPARENT else currentColor,
-            size = currentSize,
-            pressureSensitivity = pressureSensitivity
+        
+        btnLassoToolbar.isSelected = false
+        btnEraserToolbar.isSelected = false
+        btnHighlighterToolbar.isSelected = false
+        btnPenToolbar.isSelected = false
+        btnTextToolbar.isSelected = false
+        btnShapeToolbar.isSelected = false
+        
+        // Set active button
+        when (toolType) {
+            ToolType.PEN -> {
+                btnPen.isSelected = true
+                btnPenToolbar.isSelected = true
+            }
+            ToolType.PENCIL -> btnPencil.isSelected = true
+            ToolType.MARKER -> btnMarker.isSelected = true
+            ToolType.HIGHLIGHTER -> btnHighlighterToolbar.isSelected = true
+            ToolType.ERASER -> {
+                btnEraser.isSelected = true
+                btnEraserToolbar.isSelected = true
+            }
+            ToolType.LASSO -> {
+                btnLasso.isSelected = true
+                btnLassoToolbar.isSelected = true
+            }
+            ToolType.TEXT -> btnTextToolbar.isSelected = true
+            ToolType.SHAPE -> btnShapeToolbar.isSelected = true
+        }
+        
+        // Show/hide settings panel for drawing tools
+        val shouldShowSettings = toolType in listOf(
+            ToolType.PEN, ToolType.PENCIL, ToolType.MARKER, ToolType.HIGHLIGHTER
         )
-        drawingView.setCurrentTool(tool)
+        settingsPanel.visibility = if (shouldShowSettings) View.VISIBLE else View.GONE
     }
 
     private fun showColorPicker() {
         val colorPickerDialog = ColorPickerDialog()
         colorPickerDialog.setInitialColor(currentColor)
         colorPickerDialog.setOnColorSelectedListener { color ->
-            currentColor = color
-            updateCurrentTool()
-            // Update color picker button background to show current color
-            btnColorPicker.setColorFilter(currentColor)
+            viewModel.setColor(color)
         }
         colorPickerDialog.show(supportFragmentManager, "ColorPickerDialog")
+    }
+    
+    private fun showPenSizeDialog() {
+        val sizes = arrayOf("Small (3px)", "Medium (5px)", "Large (8px)", "Extra Large (12px)")
+        val sizeValues = floatArrayOf(3f, 5f, 8f, 12f)
+        
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_pen_size_title)
+            .setItems(sizes) { _, which ->
+                viewModel.setBrushSize(sizeValues[which])
+                sizeSlider.value = sizeValues[which]
+            }
+            .show()
+    }
+    
+    private fun showEraserModeDialog() {
+        val modes = arrayOf(getString(R.string.eraser_stroke), getString(R.string.eraser_part))
+        
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_eraser_mode_title)
+            .setItems(modes) { _, which ->
+                val mode = if (which == 0) EraserMode.STROKE else EraserMode.PART
+                drawingView.setEraserMode(mode)
+                Toast.makeText(this, modes[which], Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+    
+    private fun showShapePickerDialog() {
+        val shapes = arrayOf(
+            getString(R.string.shape_circle),
+            getString(R.string.shape_rectangle),
+            getString(R.string.shape_triangle)
+        )
+        
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_shape_picker_title)
+            .setItems(shapes) { _, which ->
+                val shapeType = when (which) {
+                    0 -> ShapeType.CIRCLE
+                    1 -> ShapeType.RECTANGLE
+                    else -> ShapeType.TRIANGLE
+                }
+                // Placeholder for shape drawing - would need interactive drawing
+                Toast.makeText(this, "Draw shape: ${shapes[which]}", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+    
+    private fun showTextInputDialog() {
+        val input = TextInputEditText(this)
+        val inputLayout = TextInputLayout(this).apply {
+            hint = getString(R.string.dialog_text_input_hint)
+            addView(input)
+        }
+        
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_text_input_title)
+            .setView(inputLayout)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val text = input.text.toString()
+                if (text.isNotEmpty()) {
+                    // Insert text at center of canvas
+                    val x = drawingView.width / 2f
+                    val y = drawingView.height / 2f
+                    drawingView.insertText(text, x, y)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+    
+    private fun showBackgroundDialog() {
+        val backgrounds = arrayOf(
+            getString(R.string.bg_plain),
+            getString(R.string.bg_grid),
+            getString(R.string.bg_dots),
+            getString(R.string.bg_lines)
+        )
+        
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_background_title)
+            .setItems(backgrounds) { _, which ->
+                val bgType = when (which) {
+                    0 -> BackgroundType.PLAIN
+                    1 -> BackgroundType.GRID
+                    2 -> BackgroundType.DOTS
+                    else -> BackgroundType.LINES
+                }
+                viewModel.setBackgroundType(bgType)
+            }
+            .show()
     }
 
     private fun handleImageInsertion() {
@@ -246,11 +478,6 @@ class MainActivity : AppCompatActivity() {
         imagePickerLauncher.launch(intent)
     }
 
-    private fun updateUndoRedoButtons() {
-        fabUndo.isEnabled = drawingView.canUndo()
-        fabRedo.isEnabled = drawingView.canRedo()
-    }
-
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
         return true
@@ -258,39 +485,190 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_open -> {
+                openFile()
+                true
+            }
             R.id.action_new -> {
-                drawingView.clearCanvas()
-                updateUndoRedoButtons()
+                createNewFile()
                 true
             }
             R.id.action_save -> {
-                drawingView.saveDrawing()
+                saveCurrentFile()
                 true
             }
-            R.id.action_load -> {
-                drawingView.loadDrawing()
+            R.id.action_export_png -> {
+                exportAsPNG()
+                true
+            }
+            R.id.action_export_jpeg -> {
+                exportAsJPEG()
+                true
+            }
+            R.id.action_export_pdf -> {
+                exportAsPDF()
+                true
+            }
+            R.id.bg_plain -> {
+                viewModel.setBackgroundType(BackgroundType.PLAIN)
+                true
+            }
+            R.id.bg_grid -> {
+                viewModel.setBackgroundType(BackgroundType.GRID)
+                true
+            }
+            R.id.bg_dots -> {
+                viewModel.setBackgroundType(BackgroundType.DOTS)
+                true
+            }
+            R.id.bg_lines -> {
+                viewModel.setBackgroundType(BackgroundType.LINES)
+                true
+            }
+            R.id.action_convert_text -> {
+                convertStrokesToText()
                 true
             }
             R.id.action_clear -> {
-                drawingView.clearCanvas()
-                updateUndoRedoButtons()
+                showClearConfirmationDialog()
                 true
             }
-            R.id.action_ai_text -> {
-                drawingView.performTextRecognition()
-                true
-            }
-            R.id.action_ai_shape -> {
-                drawingView.performShapeDetection()
-                true
-            }
-            R.id.action_settings -> {
-                // Toggle settings panel visibility
-                settingsPanel.visibility = if (settingsPanel.visibility == View.VISIBLE) 
-                    View.GONE else View.VISIBLE
+            R.id.action_close -> {
+                finish()
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+    
+    private fun createNewFile() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.menu_new)
+            .setMessage("Create a new drawing? Unsaved changes will be lost.")
+            .setPositiveButton(R.string.button_yes) { _, _ ->
+                drawingView.clearCanvas()
+                viewModel.createNewFile()
+                viewModel.updateUndoRedoState(false, false)
+            }
+            .setNegativeButton(R.string.button_no, null)
+            .show()
+    }
+    
+    private fun saveCurrentFile() {
+        val bitmap = drawingView.getCanvasBitmap()
+        if (bitmap == null) {
+            Toast.makeText(this, "Nothing to save", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val fileName = "drawing_${System.currentTimeMillis()}"
+        lifecycleScope.launch {
+            val result = fileRepository.saveDrawing(bitmap, fileName)
+            result.onSuccess {
+                viewModel.setCurrentFile(it)
+                Toast.makeText(this@MainActivity, "Drawing saved", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(this@MainActivity, "Failed to save: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun openFile() {
+        lifecycleScope.launch {
+            val result = fileRepository.listDrawings()
+            result.onSuccess { files ->
+                if (files.isEmpty()) {
+                    Toast.makeText(this@MainActivity, "No saved drawings", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
+                val fileNames = files.map { it.name }.toTypedArray()
+                MaterialAlertDialogBuilder(this@MainActivity)
+                    .setTitle(R.string.menu_open)
+                    .setItems(fileNames) { _, which ->
+                        // Load file logic would go here
+                        Toast.makeText(this@MainActivity, "Load: ${fileNames[which]}", Toast.LENGTH_SHORT).show()
+                    }
+                    .show()
+            }.onFailure {
+                Toast.makeText(this@MainActivity, "Failed to list files: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun exportAsPNG() {
+        val bitmap = drawingView.getCanvasBitmap()
+        if (bitmap == null) {
+            Toast.makeText(this, "Nothing to export", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val fileName = "drawing_${System.currentTimeMillis()}"
+        lifecycleScope.launch {
+            val result = fileRepository.exportAsPNG(bitmap, fileName)
+            result.onSuccess {
+                Toast.makeText(this@MainActivity, "Exported as PNG", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(this@MainActivity, "Export failed: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun exportAsJPEG() {
+        val bitmap = drawingView.getCanvasBitmap()
+        if (bitmap == null) {
+            Toast.makeText(this, "Nothing to export", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val fileName = "drawing_${System.currentTimeMillis()}"
+        lifecycleScope.launch {
+            val result = fileRepository.exportAsJPEG(bitmap, fileName)
+            result.onSuccess {
+                Toast.makeText(this@MainActivity, "Exported as JPEG", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(this@MainActivity, "Export failed: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun exportAsPDF() {
+        val bitmap = drawingView.getCanvasBitmap()
+        if (bitmap == null) {
+            Toast.makeText(this, "Nothing to export", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val fileName = "drawing_${System.currentTimeMillis()}"
+        lifecycleScope.launch {
+            val result = fileRepository.exportAsPDF(bitmap, fileName)
+            result.onSuccess {
+                Toast.makeText(this@MainActivity, "Exported as PDF", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(this@MainActivity, "Export failed: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun convertStrokesToText() {
+        drawingView.convertStrokesToText { recognizedText ->
+            MaterialAlertDialogBuilder(this)
+                .setTitle("Recognized Text")
+                .setMessage(recognizedText)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
+    }
+    
+    private fun showClearConfirmationDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_clear_title)
+            .setMessage(R.string.dialog_clear_message)
+            .setPositiveButton(R.string.button_yes) { _, _ ->
+                drawingView.clearCanvas()
+                viewModel.updateUndoRedoState(false, false)
+            }
+            .setNegativeButton(R.string.button_no, null)
+            .show()
     }
 }
