@@ -19,7 +19,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.ink.authoring.InProgressStrokesView
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.card.MaterialCardView
@@ -170,28 +169,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDrawingView() {
-        // Create InProgressStrokesView for handling AndroidX Ink strokes
-        val inProgressStrokesView = InProgressStrokesView(this).apply {
-            layoutParams = android.widget.FrameLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-        
-        // Create custom DrawingView for rendering
+        // Create DrawingView which internally manages InProgressStrokesView and CanvasStrokeRenderer
         drawingView = DrawingView(this)
         drawingView.setOnStrokeChangedListener {
             viewModel.updateUndoRedoState(drawingView.canUndo(), drawingView.canRedo())
         }
         
-        // Link the InProgressStrokesView to DrawingView
-        drawingView.setInProgressStrokesView(inProgressStrokesView)
-        
         val canvasContainer = findViewById<android.widget.FrameLayout>(R.id.canvasContainer)
-        // Add DrawingView first (bottom layer - for rendering finished strokes)
         canvasContainer.addView(drawingView)
-        // Add InProgressStrokesView on top (top layer - for handling touch and in-progress strokes)
-        canvasContainer.addView(inProgressStrokesView)
     }
 
     private fun setupToolbar() {
