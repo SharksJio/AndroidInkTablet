@@ -192,19 +192,6 @@ class MainActivity : AppCompatActivity() {
         canvasContainer.addView(drawingView)
         // Add InProgressStrokesView on top (top layer - for handling touch and in-progress strokes)
         canvasContainer.addView(inProgressStrokesView)
-        
-        // Setup touch handling - InProgressStrokesView will handle the touches
-        // and forward events to DrawingView through the listener
-        inProgressStrokesView.setOnTouchListener { view, event ->
-            // Always request unbuffered dispatch for lower latency ink
-            view.requestUnbufferedDispatch(event)
-            
-            // Let DrawingView also handle the event for custom rendering
-            drawingView.onTouchEvent(event)
-            
-            // Return false to let InProgressStrokesView also process it
-            false
-        }
     }
 
     private fun setupToolbar() {

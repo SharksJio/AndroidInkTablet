@@ -208,6 +208,10 @@ class DrawingView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // Note: When using InProgressStrokesView, this method should NOT be called directly
+        // InProgressStrokesView will handle touch events and provide finalized strokes through the listener
+        // This method is kept for backward compatibility and non-InProgressStrokesView usage
+        
         // Always request unbuffered dispatch for lower latency ink
         requestUnbufferedDispatch(event)
         
@@ -217,27 +221,25 @@ class DrawingView @JvmOverloads constructor(
         val timestamp = System.currentTimeMillis()
         
         val action = event.actionMasked
-        val pointerIndex = event.actionIndex
-        val pointerId = event.getPointerId(pointerIndex)
 
         when (action) {
             MotionEvent.ACTION_DOWN -> {
-                startNewStroke(x, y, pressure, timestamp, event, pointerId)
+                startNewStroke(x, y, pressure, timestamp)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                continueStroke(x, y, pressure, timestamp, event)
+                continueStroke(x, y, pressure, timestamp)
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                finishStroke(event, pointerId)
+                finishStroke()
                 return true
             }
         }
         return false
     }
 
-    private fun startNewStroke(x: Float, y: Float, pressure: Float, timestamp: Long, event: MotionEvent, pointerId: Int) {
+    private fun startNewStroke(x: Float, y: Float, pressure: Float, timestamp: Long) {
         val adjustedPressure = pressure * currentTool.pressureSensitivity
         
         currentStroke = Stroke(Path(), currentTool.copy()).apply {
@@ -247,13 +249,10 @@ class DrawingView @JvmOverloads constructor(
             timestamps.add(timestamp)
         }
 
-        // Use InProgressStrokesView to start the stroke if available
-        inProgressStrokesView?.startStroke(event, pointerId)
-
         invalidate()
     }
 
-    private fun continueStroke(x: Float, y: Float, pressure: Float, timestamp: Long, event: MotionEvent) {
+    private fun continueStroke(x: Float, y: Float, pressure: Float, timestamp: Long) {
         currentStroke?.let { stroke ->
             val adjustedPressure = pressure * currentTool.pressureSensitivity
             
@@ -262,15 +261,11 @@ class DrawingView @JvmOverloads constructor(
             stroke.pressures.add(adjustedPressure)
             stroke.timestamps.add(timestamp)
 
-            // InProgressStrokesView automatically handles ACTION_MOVE events
-            // through its own touch handling, so we just need to update our local stroke
-            inProgressStrokesView?.addToStroke(event, 0)
-
             invalidate()
         }
     }
 
-    private fun finishStroke(event: MotionEvent, pointerId: Int) {
+    private fun finishStroke() {
         currentStroke?.let { stroke ->
             // Add to strokes list
             strokes.add(stroke)
@@ -280,9 +275,6 @@ class DrawingView @JvmOverloads constructor(
                 configurePaintForTool(stroke.tool)
                 canvas.drawPath(stroke.path, paint)
             }
-
-            // Finish the stroke in InProgressStrokesView
-            inProgressStrokesView?.finishStroke(event, pointerId)
 
             // Add to command history
             addCommand(DrawingCommand.AddStroke(stroke))
